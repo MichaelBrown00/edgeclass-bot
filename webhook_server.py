@@ -12,21 +12,32 @@ import hmac
 
 import hashlib
 
-from edgeclass_bot import run_bot
+import asyncio
 
+from edgeclass_bot import application, process_telegram_update
 
 
 app = Flask(__name__)
 
-
-def start_bot_thread():
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-start_bot_thread()
-
 DB = "edgeclass.db"
 
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+
+# ================= ROUTES =================
+
+@app.route("/")
+def home():
+    return "Webhook Server Running"
+
+# ADD THIS ROUTE:
+@app.route("/telegram/webhook", methods=["POST"])
+def telegram_webhook():
+    update_data = request.get_json()
+    # Process the update synchronously
+    asyncio.run(process_telegram_update(update_data))
+    return "OK", 200
+
+@app.route("/paystack/webhook", methods=["POST"])
 
 
 

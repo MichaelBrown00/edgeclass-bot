@@ -338,11 +338,15 @@ EdgeClass Commands
 """)
 
 # ================= MAIN =================
+async def process_telegram_update(update_dict):
+    # This function allows Flask to feed updates into the bot
+    from telegram import Update
+    update = Update.de_json(update_dict, application.bot)
+    await application.process_update(update)
 
-def run_bot():
+def init_bot():
+    global application
     init_db()
-    
-    # Use ApplicationBuilder to build the application
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Add your handlers
@@ -355,9 +359,10 @@ def run_bot():
     application.add_handler(CommandHandler("referral", referral))
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("help", help_cmd))
-    application.add_handler(CommandHandler("force_upgrade", force_upgrade))
 
     print("EdgeClass Bot Running...")
+
+    application.initialize()
+    return application
     
-    # Run the bot directly on the application object
-    application.run_polling(drop_pending_updates=True)
+    application = init_bot()
