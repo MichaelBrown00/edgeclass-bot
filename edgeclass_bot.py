@@ -342,7 +342,7 @@ EdgeClass Commands
 def run_bot():
     init_db()
     
-    # Use the ApplicationBuilder to create the application
+    # Use ApplicationBuilder to build the application
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Add your handlers
@@ -359,5 +359,5 @@ def run_bot():
 
     print("EdgeClass Bot Running...")
     
-    # Run the bot using the built-in run_polling() method
-    application.run_polling()
+    # Run the bot directly on the application object
+    application.run_polling(drop_pending_updates=True)
