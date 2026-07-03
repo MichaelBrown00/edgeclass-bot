@@ -339,7 +339,7 @@ EdgeClass Commands
 
 # ================= MAIN =================
 
-def main():
+def run_bot():
     init_db()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -353,11 +353,8 @@ def main():
     app.add_handler(CommandHandler("referral", referral))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("force_upgrade", force_upgrade))
 
     print("EdgeClass Bot Running...")
 
     app.run_polling()
-
-
-if __name__ == "__main__":
-    main()
