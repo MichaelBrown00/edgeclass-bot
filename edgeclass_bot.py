@@ -341,20 +341,23 @@ EdgeClass Commands
 
 def run_bot():
     init_db()
+    
+    # Use the ApplicationBuilder to create the application
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("edge_today", edge_today))
-    app.add_handler(CommandHandler("predict", predict))
-    app.add_handler(CommandHandler("accumulator", accumulator))
-    app.add_handler(CommandHandler("pay", pay))
-    app.add_handler(CommandHandler("upgrade_plus", upgrade_plus))
-    app.add_handler(CommandHandler("referral", referral))
-    app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(CommandHandler("force_upgrade", force_upgrade))
+    # Add your handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("edge_today", edge_today))
+    application.add_handler(CommandHandler("predict", predict))
+    application.add_handler(CommandHandler("accumulator", accumulator))
+    application.add_handler(CommandHandler("pay", pay))
+    application.add_handler(CommandHandler("upgrade_plus", upgrade_plus))
+    application.add_handler(CommandHandler("referral", referral))
+    application.add_handler(CommandHandler("stats", stats))
+    application.add_handler(CommandHandler("help", help_cmd))
+    application.add_handler(CommandHandler("force_upgrade", force_upgrade))
 
     print("EdgeClass Bot Running...")
-
-    app.run_polling()
+    
+    # Run the bot using the built-in run_polling() method
+    application.run_polling()
