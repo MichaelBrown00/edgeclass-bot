@@ -360,9 +360,11 @@ def init_bot():
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("help", help_cmd))
 
-    print("EdgeClass Bot Running...")
-
     application.initialize()
-    return application
-    
-    application = init_bot()
+
+async def process_telegram_update(update_dict):
+    from telegram import Update
+    update = Update.de_json(update_dict, application.bot)
+    await application.process_update(update)
+
+print("EdgeClass Bot Initialized.")
