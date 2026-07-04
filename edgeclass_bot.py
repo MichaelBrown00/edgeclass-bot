@@ -347,6 +347,7 @@ async def process_telegram_update(update_dict):
 def init_bot():
     global application
     init_db()
+    from telegram.ext import Application
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # Add your handlers
@@ -360,7 +361,7 @@ def init_bot():
     application.add_handler(CommandHandler("stats", stats))
     application.add_handler(CommandHandler("help", help_cmd))
 
-    application.initialize()
+    return application
 
 async def process_telegram_update(update_dict):
     from telegram import Update
