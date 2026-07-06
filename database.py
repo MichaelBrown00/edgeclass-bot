@@ -22,6 +22,15 @@ def init_db():
     )
     """)
 
+    # Add the plan column if this is an older database
+    cur.execute("PRAGMA table_info(users)")
+    columns = [row[1] for row in cur.fetchall()]
+
+    if "plan" not in columns:
+        cur.execute(
+            "ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'"
+        )
+
     conn.commit()
     conn.close()
 

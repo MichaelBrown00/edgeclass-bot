@@ -23,6 +23,11 @@ from payments import create_payment
 from football_api import ai_model
 
 
+from database import init_db
+
+init_db()
+
+
 # ================= COMMANDS =================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):

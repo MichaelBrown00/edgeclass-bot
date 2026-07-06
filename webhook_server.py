@@ -28,6 +28,21 @@ def telegram_webhook():
 
     return "OK", 200
 
+@app.route("/db")
+def db():
+    import sqlite3
+    from config import DB
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    cur.execute("PRAGMA table_info(users)")
+    rows = cur.fetchall()
+
+    conn.close()
+
+    return str(rows)
+
 
 # ---------------- PAYSTACK WEBHOOK ----------------
 
