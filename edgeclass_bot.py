@@ -259,6 +259,15 @@ application.add_handler(CommandHandler("stats", stats))
 application.add_handler(CommandHandler("help", help_cmd))
 
 
+initialized = False
+
+
 async def process_telegram_update(update_dict):
+    global initialized
+
+    if not initialized:
+        await application.initialize()
+        initialized = True
+
     update = Update.de_json(update_dict, application.bot)
     await application.process_update(update)
