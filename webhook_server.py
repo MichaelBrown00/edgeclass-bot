@@ -43,6 +43,30 @@ def db():
 
     return str(rows)
 
+@app.route("/debug/user/<int:user_id>")
+def debug_user(user_id):
+    import sqlite3
+    from config import DB
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    cur.execute("PRAGMA table_info(users)")
+    schema = cur.fetchall()
+
+    cur.execute(
+        "SELECT * FROM users WHERE user_id=?",
+        (user_id,)
+    )
+    user = cur.fetchone()
+
+    conn.close()
+
+    return {
+        "schema": schema,
+        "user": user,
+    }
+
 
 # ---------------- PAYSTACK WEBHOOK ----------------
 
