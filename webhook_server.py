@@ -85,6 +85,10 @@ def debug_upgrade(user_id):
 @app.route("/paystack/webhook", methods=["POST"])
 def paystack_webhook():
 
+    print("========== PAYSTACK WEBHOOK RECEIVED ==========")
+    print(request.headers)
+    print(request.get_data(as_text=True))
+
     signature = request.headers.get("x-paystack-signature")
     payload = request.data
 
@@ -95,6 +99,9 @@ def paystack_webhook():
             payload,
             hashlib.sha512
         ).hexdigest()
+
+        print("Signature from Paystack:", signature)
+        print("Calculated signature:", hash_code)
 
         if signature != hash_code:
             return "Forbidden", 403
@@ -112,15 +119,17 @@ def paystack_webhook():
 
             update_plan(user_id, plan)
 
+            print(f"Updated user {user_id} to {plan}")
+
             print(f"✅ User {user_id} upgraded to {plan}")
 
         return "OK", 200
-
     except Exception as e:
 
         print(e)
 
         return "Error", 500
+
 
 
 if __name__ == "__main__":
