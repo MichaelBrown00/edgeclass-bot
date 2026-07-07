@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import hmac
 import hashlib
 import asyncio
@@ -28,66 +27,10 @@ def telegram_webhook():
 
     return "OK", 200
 
-@app.route("/db")
-def db():
-    import sqlite3
-    from config import DB
-
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
-
-    cur.execute("PRAGMA table_info(users)")
-    rows = cur.fetchall()
-
-    conn.close()
-
-    return str(rows)
-
-@app.route("/debug/user/<int:user_id>")
-def debug_user(user_id):
-    import sqlite3
-    from config import DB
-
-    conn = sqlite3.connect(DB)
-    cur = conn.cursor()
-
-    cur.execute("PRAGMA table_info(users)")
-    schema = cur.fetchall()
-
-    cur.execute(
-        "SELECT * FROM users WHERE user_id=?",
-        (user_id,)
-    )
-    user = cur.fetchone()
-
-    conn.close()
-
-    return {
-        "schema": schema,
-        "user": user,
-    }
-
-@app.route("/debug/upgrade/<int:user_id>")
-def debug_upgrade(user_id):
-    from database import update_plan
-
-    update_plan(user_id, "premium")
-
-    return {
-        "status": "success",
-        "user_id": user_id,
-        "plan": "premium"
-    }
-
-
 # ---------------- PAYSTACK WEBHOOK ----------------
 
 @app.route("/paystack/webhook", methods=["POST"])
 def paystack_webhook():
-
-    print("========== PAYSTACK WEBHOOK RECEIVED ==========")
-    print(request.headers)
-    print(request.get_data(as_text=True))
 
     signature = request.headers.get("x-paystack-signature")
     payload = request.data
@@ -99,9 +42,6 @@ def paystack_webhook():
             payload,
             hashlib.sha512
         ).hexdigest()
-
-        print("Signature from Paystack:", signature)
-        print("Calculated signature:", hash_code)
 
         if signature != hash_code:
             return "Forbidden", 403
@@ -119,11 +59,10 @@ def paystack_webhook():
 
             update_plan(user_id, plan)
 
-            print(f"Updated user {user_id} to {plan}")
-
             print(f"✅ User {user_id} upgraded to {plan}")
 
         return "OK", 200
+
     except Exception as e:
 
         print(e)
