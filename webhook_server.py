@@ -67,6 +67,18 @@ def debug_user(user_id):
         "user": user,
     }
 
+@app.route("/debug/upgrade/<int:user_id>")
+def debug_upgrade(user_id):
+    from database import update_plan
+
+    update_plan(user_id, "premium")
+
+    return {
+        "status": "success",
+        "user_id": user_id,
+        "plan": "premium"
+    }
+
 
 # ---------------- PAYSTACK WEBHOOK ----------------
 
