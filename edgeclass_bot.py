@@ -17,6 +17,7 @@ from database import (
     add_user,
     get_referrals,
     get_plan,
+    get_user,
 )
 
 from payments import create_payment
@@ -54,6 +55,7 @@ Commands:
 /upgrade_plus
 /referral
 /stats
+/myplan
 /help
 """
     )
@@ -230,6 +232,49 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def myplan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user = get_user(update.effective_user.id)
+
+    if not user:
+
+        await update.message.reply_text(
+            "No account found."
+        )
+        return
+
+    plan, joined, expiry = user
+
+    if not joined:
+        joined = "Not available"
+
+    if not expiry:
+        expiry = "Unlimited"
+
+    emoji = "🆓"
+
+    if plan == "premium":
+        emoji = "⭐"
+
+    elif plan == "vip":
+        emoji = "👑"
+
+    message = f"""
+👤 Your EdgeClass Account
+
+Plan:
+{emoji} {plan.upper()}
+
+Joined:
+{joined}
+
+Expires:
+{expiry}
+"""
+
+    await update.message.reply_text(message)
+
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
@@ -244,6 +289,7 @@ EdgeClass Commands
 /upgrade_plus
 /referral
 /stats
+/myplan
 /help
 """
     )
@@ -261,6 +307,7 @@ application.add_handler(CommandHandler("pay", pay))
 application.add_handler(CommandHandler("upgrade_plus", upgrade_plus))
 application.add_handler(CommandHandler("referral", referral))
 application.add_handler(CommandHandler("stats", stats))
+application.add_handler(CommandHandler("myplan", myplan))
 application.add_handler(CommandHandler("help", help_cmd))
 
 

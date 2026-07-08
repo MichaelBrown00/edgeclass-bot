@@ -112,16 +112,15 @@ def get_plan(user_id):
     cur = conn.cursor()
 
     cur.execute(
-        "SELECT plan FROM users WHERE user_id=%s",
+        """
+        SELECT plan
+        FROM users
+        WHERE user_id=%s
+        """,
         (user_id,)
     )
 
     row = cur.fetchone()
-
-    print("====================================")
-    print(f"USER ID: {user_id}")
-    print(f"DATABASE ROW: {row}")
-    print("====================================")
 
     cur.close()
     conn.close()
@@ -130,3 +129,51 @@ def get_plan(user_id):
         return row[0]
 
     return "free"
+
+
+def get_user(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            plan,
+            joined_date,
+            expiry_date
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return row
+
+
+def get_expiry(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT expiry_date
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if row:
+        return row[0]
+
+    return None
