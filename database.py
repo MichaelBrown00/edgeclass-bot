@@ -118,6 +118,11 @@ def get_plan(user_id):
 
     row = cur.fetchone()
 
+    print("====================================")
+    print(f"USER ID: {user_id}")
+    print(f"DATABASE ROW: {row}")
+    print("====================================")
+
     cur.close()
     conn.close()
 
