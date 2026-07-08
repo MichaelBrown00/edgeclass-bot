@@ -19,6 +19,16 @@ def home():
 
 # ---------------- TELEGRAM WEBHOOK ----------------
 
+@app.route("/telegram/webhook", methods=["POST"])
+def telegram_webhook():
+    update = request.get_json()
+
+    asyncio.run(process_telegram_update(update))
+
+    return "OK", 200
+
+# ---------------- PAYSTACK WEBHOOK ----------------
+
 @app.route("/paystack/webhook", methods=["POST"])
 def paystack_webhook():
 
@@ -58,7 +68,6 @@ def paystack_webhook():
 
             if user_id and plan:
                 update_plan(int(user_id), plan)
-
                 print(f"✅ Updated PostgreSQL: {user_id} -> {plan}")
             else:
                 print("❌ Missing metadata")
@@ -68,11 +77,3 @@ def paystack_webhook():
     except Exception as e:
         print("WEBHOOK ERROR:", e)
         return "Error", 500
-
-
-
-if __name__ == "__main__":
-
-    port = int(os.environ.get("PORT", 5000))
-
-    app.run(host="0.0.0.0", port=port)
