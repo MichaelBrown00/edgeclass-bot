@@ -161,7 +161,7 @@ async def pay(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [
             InlineKeyboardButton(
-                "Pay ₦100",
+                "Pay ₦3500",
                 url=url,
             )
         ]
