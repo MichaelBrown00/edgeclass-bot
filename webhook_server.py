@@ -19,24 +19,15 @@ def home():
 
 # ---------------- TELEGRAM WEBHOOK ----------------
 
-@app.route("/telegram/webhook", methods=["POST"])
-def telegram_webhook():
-    update = request.get_json()
-
-    asyncio.run(process_telegram_update(update))
-
-    return "OK", 200
-
-# ---------------- PAYSTACK WEBHOOK ----------------
-
 @app.route("/paystack/webhook", methods=["POST"])
 def paystack_webhook():
+
+    print("========== PAYSTACK WEBHOOK HIT ==========")
 
     signature = request.headers.get("x-paystack-signature")
     payload = request.data
 
     if PAYSTACK_SECRET_KEY:
-
         hash_code = hmac.new(
             PAYSTACK_SECRET_KEY.encode(),
             payload,
@@ -44,29 +35,38 @@ def paystack_webhook():
         ).hexdigest()
 
         if signature != hash_code:
+            print("❌ Invalid signature")
             return "Forbidden", 403
 
     try:
-
         data = request.get_json()
 
-        if data["event"] == "charge.success":
+        print("EVENT:", data.get("event"))
+        print("DATA:", data)
 
-            metadata = data["data"]["metadata"]
+        if data.get("event") == "charge.success":
 
-            user_id = metadata["user_id"]
-            plan = metadata["plan"]
+            metadata = data["data"].get("metadata", {})
 
-            update_plan(user_id, plan)
+            print("METADATA:", metadata)
 
-            print(f"✅ User {user_id} upgraded to {plan}")
+            user_id = metadata.get("user_id")
+            plan = metadata.get("plan")
+
+            print("USER:", user_id)
+            print("PLAN:", plan)
+
+            if user_id and plan:
+                update_plan(int(user_id), plan)
+
+                print(f"✅ Updated PostgreSQL: {user_id} -> {plan}")
+            else:
+                print("❌ Missing metadata")
 
         return "OK", 200
 
     except Exception as e:
-
-        print(e)
-
+        print("WEBHOOK ERROR:", e)
         return "Error", 500
 
 
