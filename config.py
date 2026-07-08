@@ -13,7 +13,7 @@ FOOTBALL_API_KEY = os.getenv("FOOTBALL_API_KEY")
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 
 # Database
-DB = "edgeclass.db"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Pricing
 PREMIUM_PRICE = 3500

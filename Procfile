@@ -1,2 +1,2 @@
-web: gunicorn webhook_server:app
-worker: python edgeclass_bot.py
+DATABASE_URL = os.getenv("DATABASE_URL")
+SQLITE_DB = "edgeclass.db"

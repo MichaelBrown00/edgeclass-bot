@@ -22,15 +22,26 @@ def init_db():
     )
     """)
 
-    # Check if the 'plan' column exists
+    # Existing columns
     cur.execute("PRAGMA table_info(users)")
-    columns = [row[1] for row in cur.fetchall()]
+    existing_columns = [row[1] for row in cur.fetchall()]
 
-    if "plan" not in columns:
-        cur.execute(
-            "ALTER TABLE users ADD COLUMN plan TEXT DEFAULT 'free'"
-        )
-        print("✅ Added missing 'plan' column.")
+    # Columns EdgeClass requires
+    required_columns = {
+        "plan": "TEXT DEFAULT 'free'",
+        "expiry_date": "TEXT",
+        "joined_date": "TEXT",
+        "last_payment_reference": "TEXT",
+        "last_payment_amount": "INTEGER DEFAULT 0",
+        "last_payment_date": "TEXT"
+    }
+
+    for column, definition in required_columns.items():
+        if column not in existing_columns:
+            cur.execute(
+                f"ALTER TABLE users ADD COLUMN {column} {definition}"
+            )
+            print(f"✅ Added missing column: {column}")
 
     conn.commit()
     conn.close()
