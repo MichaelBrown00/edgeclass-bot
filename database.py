@@ -89,17 +89,31 @@ def get_referrals(user_id):
     return 0
 
 
+from datetime import datetime, timedelta
+
+
 def update_plan(user_id, plan):
     conn = get_connection()
     cur = conn.cursor()
 
+    joined = datetime.now()
+    expiry = joined + timedelta(days=30)
+
     cur.execute(
         """
         UPDATE users
-        SET plan=%s
+        SET
+            plan=%s,
+            joined_date=%s,
+            expiry_date=%s
         WHERE user_id=%s
         """,
-        (plan, user_id)
+        (
+            plan,
+            joined.strftime("%Y-%m-%d"),
+            expiry.strftime("%Y-%m-%d"),
+            user_id
+        )
     )
 
     conn.commit()
