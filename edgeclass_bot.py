@@ -18,6 +18,7 @@ from database import (
     get_referrals,
     get_plan,
     get_user,
+    expire_user,
     check_subscription,
 )
 
@@ -276,6 +277,20 @@ Expires:
     await update.message.reply_text(message)
 
 
+async def expireme(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    # Only you can use this command
+    if update.effective_user.id != 8519398783:
+        await update.message.reply_text("❌ Unauthorized.")
+        return
+
+    expire_user(update.effective_user.id)
+
+    await update.message.reply_text(
+        "✅ Your Premium subscription has been expired for testing."
+    )
+
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
@@ -309,6 +324,7 @@ application.add_handler(CommandHandler("upgrade_plus", upgrade_plus))
 application.add_handler(CommandHandler("referral", referral))
 application.add_handler(CommandHandler("stats", stats))
 application.add_handler(CommandHandler("myplan", myplan))
+application.add_handler(CommandHandler("expireme", expireme))
 application.add_handler(CommandHandler("help", help_cmd))
 
 

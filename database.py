@@ -184,6 +184,32 @@ def get_user(user_id):
 
     return row
 
+# ---------------- ADMIN TESTING ----------------
+
+from datetime import datetime, timedelta
+
+
+def expire_user(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    yesterday = (
+        datetime.now() - timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+    cur.execute(
+        """
+        UPDATE users
+        SET expiry_date=%s
+        WHERE user_id=%s
+        """,
+        (yesterday, user_id)
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
 
 def check_subscription(user_id):
     conn = get_connection()
