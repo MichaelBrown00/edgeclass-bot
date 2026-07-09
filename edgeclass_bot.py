@@ -17,7 +17,7 @@ from database import (
     add_user,
     get_referrals,
     get_plan,
-    get_user,
+    check_subscription,
 )
 
 from payments import create_payment
@@ -88,7 +88,7 @@ Upgrade for Premium predictions.
 
 async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if get_plan(update.effective_user.id) == "free":
+    if check_subscription(update.effective_user.id) == "free":
         await update.message.reply_text(
             "❌ Upgrade to Premium to use this feature."
         )
@@ -112,7 +112,7 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def accumulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if get_plan(update.effective_user.id) == "free":
+    if check_subscription(update.effective_user.id) == "free":
         await update.message.reply_text(
             "❌ Upgrade to Premium."
         )

@@ -1,5 +1,6 @@
 import psycopg
 from config import DATABASE_URL
+from datetime import datetime
 
 
 def get_connection():
@@ -143,6 +144,80 @@ def get_plan(user_id):
         return row[0]
 
     return "free"
+
+def get_plan(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT plan FROM users WHERE user_id=%s",
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if row:
+        return row[0]
+
+    return "free"
+
+
+def check_subscription(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT plan, expiry_date
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    if not row:
+        cur.close()
+        conn.close()
+        return "free"
+
+    plan, expiry = row
+
+    if plan == "free":
+        cur.close()
+        conn.close()
+        return "free"
+
+    if expiry:
+
+        expiry_date = datetime.strptime(
+            expiry,
+            "%Y-%m-%d"
+        )
+
+        if datetime.now() > expiry_date:
+
+            cur.execute(
+                """
+                UPDATE users
+                SET plan='free'
+                WHERE user_id=%s
+                """,
+                (user_id,)
+            )
+
+            conn.commit()
+
+            plan = "free"
+
+    cur.close()
+    conn.close()
+
+    return plan
 
 
 def get_user(user_id):
