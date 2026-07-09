@@ -17,6 +17,7 @@ from database import (
     add_user,
     get_referrals,
     get_plan,
+    get_user,
     check_subscription,
 )
 
