@@ -19,7 +19,7 @@ def init_db():
             user_id BIGINT PRIMARY KEY,
             referral BIGINT,
             referrals INTEGER DEFAULT 0,
-            successful_referrals INTEGER DEFAULT 0,    
+            successful_referrals INTEGER DEFAULT 0,
             plan TEXT DEFAULT 'free',
             expiry_date TEXT,
             joined_date TEXT,
@@ -29,14 +29,14 @@ def init_db():
         )
     """)
 
-    conn.commit()
-    cur.close()
-    conn.close()
-
     cur.execute("""
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS successful_referrals INTEGER DEFAULT 0
     """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 def add_user(user_id, ref=None):
