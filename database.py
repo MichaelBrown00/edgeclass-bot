@@ -207,6 +207,73 @@ def reward_referrer(user_id):
 
     cur.close()
     conn.close()
+    
+
+def apply_referral_reward(user_id):
+    """
+    Automatically upgrades users based on successful referrals.
+    """
+
+    successful = get_successful_referrals(user_id)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    joined = datetime.now()
+
+    if successful >= 20:
+
+        cur.execute("""
+            UPDATE users
+            SET
+                plan='vip',
+                expiry_date=NULL
+            WHERE user_id=%s
+        """, (user_id,))
+
+    elif successful >= 10:
+
+        cur.execute("""
+            UPDATE users
+            SET
+                plan='premium',
+                expiry_date=NULL
+            WHERE user_id=%s
+        """, (user_id,))
+
+    elif successful >= 5:
+
+        expiry = joined + timedelta(days=30)
+
+        cur.execute("""
+            UPDATE users
+            SET
+                plan='vip',
+                expiry_date=%s
+            WHERE user_id=%s
+        """, (
+            expiry.strftime("%Y-%m-%d"),
+            user_id
+        ))
+
+    elif successful >= 3:
+
+        expiry = joined + timedelta(days=7)
+
+        cur.execute("""
+            UPDATE users
+            SET
+                plan='premium',
+                expiry_date=%s
+            WHERE user_id=%s
+        """, (
+            expiry.strftime("%Y-%m-%d"),
+            user_id
+        ))
+
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 def get_plan(user_id):
