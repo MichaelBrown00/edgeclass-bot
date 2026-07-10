@@ -16,6 +16,7 @@ from config import (
 from database import (
     add_user,
     get_referrals,
+    get_successful_referrals,
     get_plan,
     get_user,
     expire_user,
@@ -227,10 +228,20 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    refs = get_referrals(update.effective_user.id)
+    referrals = get_referrals(update.effective_user.id)
+    successful = get_successful_referrals(update.effective_user.id)
 
     await update.message.reply_text(
-        f"You have {refs} referrals."
+        f"""
+📊 Your Referral Stats
+
+👥 Total Referrals: {referrals}
+
+💎 Successful Referrals:
+{successful}
+
+Invite more friends to unlock rewards!
+"""
     )
 
 

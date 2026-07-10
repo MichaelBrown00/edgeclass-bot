@@ -99,6 +99,30 @@ def get_referrals(user_id):
 from datetime import datetime, timedelta
 
 
+def get_successful_referrals(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT successful_referrals
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if row:
+        return row[0]
+
+    return 0
+
+
 def update_plan(user_id, plan):
     conn = get_connection()
     cur = conn.cursor()
