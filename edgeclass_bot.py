@@ -335,7 +335,7 @@ application.add_handler(CommandHandler("upgrade_plus", upgrade_plus))
 application.add_handler(CommandHandler("referral", referral))
 application.add_handler(CommandHandler("stats", stats))
 application.add_handler(CommandHandler("myplan", myplan))
-application.add_handler(CommandHandler("expireme", expireme))
+application.add_handler(CommandHandler("admin_expire", expireme))
 application.add_handler(CommandHandler("help", help_cmd))
 
 
