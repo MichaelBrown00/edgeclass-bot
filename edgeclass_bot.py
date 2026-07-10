@@ -228,25 +228,45 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    total = get_referrals(update.effective_user.id)
+    refs = get_referrals(update.effective_user.id)
+    successful = get_successful_referrals(update.effective_user.id)
 
-    successful = get_successful_referrals(
-        update.effective_user.id
-    )
+    if successful >= 20:
+        reward = "🏆 Founder VIP Badge"
+        next_reward = "You've unlocked every reward!"
+    elif successful >= 10:
+        reward = "💎 Lifetime Premium"
+        next_reward = "10 more referrals → Founder VIP Badge"
+    elif successful >= 5:
+        reward = "👑 30 Days VIP"
+        next_reward = "5 more referrals → Lifetime Premium"
+    elif successful >= 3:
+        reward = "⭐ 7 Days Premium"
+        next_reward = "2 more referrals → 30 Days VIP"
+    elif successful >= 1:
+        reward = "🎯 Free Premium Prediction"
+        next_reward = "2 more referrals → 7 Days Premium"
+    else:
+        reward = "None yet"
+        next_reward = "1 referral → Free Premium Prediction"
 
-    await update.message.reply_text(
-        f"""
+    message = f"""
 📊 EdgeClass Referral Stats
 
 👥 Total Referrals:
-{total}
+{refs}
 
 💎 Successful Referrals:
 {successful}
 
-Invite more friends to unlock rewards!
+🏆 Current Reward:
+{reward}
+
+🎁 Next Reward:
+{next_reward}
 """
-    )
+
+    await update.message.reply_text(message)
 
 
 async def myplan(update: Update, context: ContextTypes.DEFAULT_TYPE):

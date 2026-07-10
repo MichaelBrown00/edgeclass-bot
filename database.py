@@ -1,6 +1,6 @@
 import psycopg
 from config import DATABASE_URL
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def get_connection():
@@ -120,31 +120,25 @@ def get_successful_referrals(user_id):
     return 0
 
 
-from datetime import datetime, timedelta
-
-
-def get_successful_referrals(user_id):
+def downgrade_user(user_id):
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute(
         """
-        SELECT successful_referrals
-        FROM users
-        WHERE user_id=%s
+        UPDATE users
+SET
+    plan='free',
+    expiry_date=NULL,
+    joined_date=NULL
+WHERE user_id=%s
         """,
         (user_id,)
     )
 
-    row = cur.fetchone()
-
+    conn.commit()
     cur.close()
     conn.close()
-
-    if row:
-        return row[0]
-
-    return 0
 
 
 def update_plan(user_id, plan):
@@ -238,50 +232,7 @@ def get_plan(user_id):
 
     return "free"
 
-def get_plan(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT plan FROM users WHERE user_id=%s",
-        (user_id,)
-    )
-
-    row = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    if row:
-        return row[0]
-
-    return "free"
-
-def get_user(user_id):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        SELECT plan, joined_date, expiry_date
-        FROM users
-        WHERE user_id=%s
-        """,
-        (user_id,)
-    )
-
-    row = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    return row
-
 # ---------------- ADMIN TESTING ----------------
-
-from datetime import datetime, timedelta
-
-
 def expire_user(user_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -340,18 +291,12 @@ def check_subscription(user_id):
 
         if datetime.now() > expiry_date:
 
-            cur.execute(
-                """
-                UPDATE users
-                SET plan='free'
-                WHERE user_id=%s
-                """,
-                (user_id,)
-            )
+            cur.close()
+            conn.close()
 
-            conn.commit()
+            downgrade_user(user_id)
 
-            plan = "free"
+            return "free"
 
     cur.close()
     conn.close()
