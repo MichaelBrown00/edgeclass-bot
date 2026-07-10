@@ -228,14 +228,18 @@ async def referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    referrals = get_referrals(update.effective_user.id)
-    successful = get_successful_referrals(update.effective_user.id)
+    total = get_referrals(update.effective_user.id)
+
+    successful = get_successful_referrals(
+        update.effective_user.id
+    )
 
     await update.message.reply_text(
         f"""
-📊 Your Referral Stats
+📊 EdgeClass Referral Stats
 
-👥 Total Referrals: {referrals}
+👥 Total Referrals:
+{total}
 
 💎 Successful Referrals:
 {successful}

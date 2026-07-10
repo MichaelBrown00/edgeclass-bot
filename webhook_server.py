@@ -6,7 +6,7 @@ import asyncio
 from flask import Flask, request
 
 from edgeclass_bot import process_telegram_update
-from database import update_plan
+from database import update_plan, reward_referrer
 from config import PAYSTACK_SECRET_KEY
 
 app = Flask(__name__)
@@ -67,8 +67,14 @@ def paystack_webhook():
             print("PLAN:", plan)
 
             if user_id and plan:
+
                 update_plan(int(user_id), plan)
+
+                reward_referrer(int(user_id))
+
                 print(f"✅ Updated PostgreSQL: {user_id} -> {plan}")
+                print(f"🎉 Referral reward processed for {user_id}")
+
             else:
                 print("❌ Missing metadata")
 

@@ -96,6 +96,30 @@ def get_referrals(user_id):
     return 0
 
 
+def get_successful_referrals(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT successful_referrals
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if row:
+        return row[0]
+
+    return 0
+
+
 from datetime import datetime, timedelta
 
 
@@ -148,6 +172,45 @@ def update_plan(user_id, plan):
     )
 
     conn.commit()
+    cur.close()
+    conn.close()
+
+
+def reward_referrer(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Find who referred this user
+    cur.execute(
+        """
+        SELECT referral
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    if not row or row[0] is None:
+        cur.close()
+        conn.close()
+        return
+
+    referrer = row[0]
+
+    # Increase successful referrals
+    cur.execute(
+        """
+        UPDATE users
+        SET successful_referrals = successful_referrals + 1
+        WHERE user_id=%s
+        """,
+        (referrer,)
+    )
+
+    conn.commit()
+
     cur.close()
     conn.close()
 
