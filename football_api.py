@@ -31,6 +31,8 @@ def ai_model():
 
         fixtures = response.get("response", [])
 
+        print("TOTAL FIXTURES:", len(fixtures))
+
         if not fixtures:
             return []
 
@@ -52,8 +54,8 @@ def ai_model():
             league = fixture["league"]["name"]
 
             kickoff = fixture["fixture"]["date"][11:16]
-            
-            print("RAW KICKOFF:", fixture["fixture"]["date"])
+
+            print("RAW KICKOFF:", kickoff)
 
             confidence = random.randint(70, 90)
 
