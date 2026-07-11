@@ -513,3 +513,55 @@ def get_prediction_history(limit=10):
     conn.close()
 
     return rows
+
+
+def get_pending_predictions():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            match,
+            prediction
+        FROM predictions
+        WHERE status='Pending'
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
+def update_prediction_result(
+    prediction_id,
+    status,
+    actual_score
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE predictions
+        SET
+            status=%s,
+            actual_score=%s
+        WHERE id=%s
+        """,
+        (
+            status,
+            actual_score,
+            prediction_id
+        )
+    )
+
+    conn.commit()
+
+    cur.close()
+    conn.close()

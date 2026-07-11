@@ -353,6 +353,7 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "No prediction history yet."
         )
+
         return
 
     message = "📈 EdgeClass Prediction History\n\n"
@@ -370,20 +371,37 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
             actual_score
         ) = row
 
-        score = actual_score or "Pending"
-
-        emoji = {
-            "WIN": "✅",
-            "LOSS": "❌",
-            "Pending": "⏳"
-        }.get(status, "⏳")
-
         message += (
-            f"{emoji} {match}\n"
-            f"Prediction: {prediction}\n"
-            f"Result: {score}\n"
-            f"Status: {status}\n\n"
+            "━━━━━━━━━━━━━━━━━━\n\n"
+
+            f"⚽ {match}\n\n"
+
+            f"🏆 {league}\n"
+            f"🕒 Kickoff: {kickoff}\n\n"
+
+            f"🎯 Prediction\n"
+            f"{prediction}\n\n"
+
+            f"📈 Confidence\n"
+            f"{confidence}%\n\n"
+
+            f"💰 Odds\n"
+            f"{odds}\n\n"
         )
+
+        if status == "Pending":
+
+            message += "⏳ Awaiting Result\n\n"
+
+        else:
+
+            message += (
+                f"⚽ Final Score\n"
+                f"{actual_score}\n\n"
+
+                f"✅ RESULT\n"
+                f"{status}\n\n"
+            )
 
     await update.message.reply_text(message)
 
