@@ -52,7 +52,8 @@ def ai_model():
             league = fixture["league"]["name"]
 
             kickoff = fixture["fixture"]["date"][11:16]
-            print("RAW KICKOFF:", kickoff)
+            
+            print("RAW KICKOFF:", fixture["fixture"]["date"])
 
             confidence = random.randint(70, 90)
 
