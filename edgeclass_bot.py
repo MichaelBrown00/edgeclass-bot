@@ -21,6 +21,8 @@ from database import (
     get_user,
     expire_user,
     check_subscription,
+    save_prediction,
+    get_prediction_history,
 )
 
 from payments import create_payment
@@ -101,14 +103,30 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not bets:
         await update.message.reply_text(
-            "No strong edge today."
+            "⚠️ No strong edge found today."
         )
         return
 
     message = "🔥 EdgeClass AI Predictions\n\n"
 
     for bet in bets[:5]:
-        message += bet + "\n\n"
+
+        save_prediction(
+            bet["match"],
+            bet["prediction"],
+            bet["confidence"],
+            bet["odds"],
+            bet["league"],
+            bet["kickoff"]
+        )
+
+        message += (
+            f"⚽ {bet['match']}\n"
+            f"🏆 {bet['league']}\n"
+            f"🎯 Bet: {bet['prediction']}\n"
+            f"📈 Confidence: {bet['confidence']}%\n"
+            f"💰 Odds: {bet['odds']}\n\n"
+        )
 
     await update.message.reply_text(message)
 
@@ -326,6 +344,50 @@ async def expireme(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    rows = get_prediction_history()
+
+    if not rows:
+
+        await update.message.reply_text(
+            "No prediction history yet."
+        )
+        return
+
+    message = "📈 EdgeClass Prediction History\n\n"
+
+    for row in rows:
+
+        (
+            match,
+            prediction,
+            confidence,
+            odds,
+            league,
+            kickoff,
+            status,
+            actual_score
+        ) = row
+
+        score = actual_score or "Pending"
+
+        emoji = {
+            "WIN": "✅",
+            "LOSS": "❌",
+            "Pending": "⏳"
+        }.get(status, "⏳")
+
+        message += (
+            f"{emoji} {match}\n"
+            f"Prediction: {prediction}\n"
+            f"Result: {score}\n"
+            f"Status: {status}\n\n"
+        )
+
+    await update.message.reply_text(message)
+
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
@@ -360,6 +422,7 @@ application.add_handler(CommandHandler("referral", referral))
 application.add_handler(CommandHandler("stats", stats))
 application.add_handler(CommandHandler("myplan", myplan))
 application.add_handler(CommandHandler("admin_expire", expireme))
+application.add_handler(CommandHandler("history", history))
 application.add_handler(CommandHandler("help", help_cmd))
 
 

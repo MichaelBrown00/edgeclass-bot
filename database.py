@@ -34,6 +34,31 @@ def init_db():
         ADD COLUMN IF NOT EXISTS successful_referrals INTEGER DEFAULT 0
     """)
 
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS predictions (
+
+            id SERIAL PRIMARY KEY,
+
+            match TEXT,
+
+            prediction TEXT,
+
+            confidence INTEGER,
+
+            odds REAL,
+
+            league TEXT,
+
+            kickoff TEXT,
+
+            prediction_date TEXT,
+
+            status TEXT DEFAULT 'Pending',
+
+            actual_score TEXT
+        )
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
@@ -417,3 +442,74 @@ def get_expiry(user_id):
         return row[0]
 
     return None
+
+
+def save_prediction(
+    match,
+    prediction,
+    confidence,
+    odds,
+    league,
+    kickoff
+):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO predictions
+        (
+            match,
+            prediction,
+            confidence,
+            odds,
+            league,
+            kickoff,
+            prediction_date
+        )
+        VALUES
+        (%s,%s,%s,%s,%s,%s,%s)
+        """,
+        (
+            match,
+            prediction,
+            confidence,
+            odds,
+            league,
+            kickoff,
+            datetime.now().strftime("%Y-%m-%d")
+        )
+    )
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+
+def get_prediction_history(limit=10):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            match,
+            prediction,
+            confidence,
+            odds,
+            league,
+            kickoff,
+            status,
+            actual_score
+        FROM predictions
+        ORDER BY id DESC
+        LIMIT %s
+    """, (limit,))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
