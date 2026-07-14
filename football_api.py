@@ -28,13 +28,28 @@ def ai_model():
         response = requests.get(
             url,
             headers=headers,
-            timeout=20
-        ).json()
+            timeout=20,
+            verify=False
+       )
+
+        print("STATUS:", response.status_code)
+
+        response = response.json()
 
         fixtures = response.get("response", [])
 
-        print("TOTAL FIXTURES:", len(fixtures))
+        print("Fixtures returned:", len(fixtures))
 
+        for f in fixtures[:5]:
+             print(
+        f["teams"]["home"]["name"],
+        "vs",
+        f["teams"]["away"]["name"]
+    )
+
+        print(f"Fixtures from API: {len(fixtures)}")
+        
+        print("TOTAL FIXTURES:", len(fixtures))
         if not fixtures:
             return []
 
@@ -72,6 +87,9 @@ def ai_model():
 
             predictions.append({
 
+    "fixture_id":
+        fixture["fixture"]["id"],            
+
     "match":
         f"{home} vs {away}",
 
@@ -95,7 +113,6 @@ def ai_model():
 
     "actual_score":
         None
-
 })
 
         return predictions
@@ -113,8 +130,19 @@ def check_results():
     """
     Checks finished matches and updates prediction results.
     """
+    print("🔄 Scheduler is running...")
 
     pending = get_pending_predictions()
+
+    print(f"Pending predictions: {len(pending)}")
+
+    for row in pending:
+        print(row)
+
+    print(f"Pending predictions: {len(pending)}")
+
+    for row in pending:
+        print(row)
 
     if not pending:
         print("No pending predictions.")
@@ -133,13 +161,24 @@ def check_results():
             "x-apisports-key": FOOTBALL_API_KEY
         }
 
+        print("Calling Football API...")
+
         response = requests.get(
             url,
             headers=headers,
-            timeout=20
-        ).json()
+            timeout=20,
+            verify=False
+        )
+
+        print("STATUS:", response.status_code)
+
+        response = response.json()
+
+        print(response)
 
         fixtures = response.get("response", [])
+
+        print(f"Fixtures from API: {len(fixtures)}")
 
         for prediction in pending:
 

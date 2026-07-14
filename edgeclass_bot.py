@@ -31,8 +31,6 @@ from football_api import ai_model
 
 from database import init_db
 
-init_db()
-
 
 # ================= COMMANDS =================
 
@@ -112,6 +110,7 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for bet in bets[:5]:
 
         save_prediction(
+            bet["fixture_id"],
             bet["match"],
             bet["prediction"],
             bet["confidence"],

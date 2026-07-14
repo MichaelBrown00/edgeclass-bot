@@ -59,6 +59,11 @@ def init_db():
         )
     """)
 
+    cur.execute("""
+    ALTER TABLE predictions
+    ADD COLUMN IF NOT EXISTS fixture_id BIGINT
+""")
+
     conn.commit()
     cur.close()
     conn.close()
@@ -445,6 +450,7 @@ def get_expiry(user_id):
 
 
 def save_prediction(
+    fixture_id,
     match,
     prediction,
     confidence,
@@ -459,6 +465,7 @@ def save_prediction(
         """
         INSERT INTO predictions
         (
+            fixture_id,
             match,
             prediction,
             confidence,
@@ -471,6 +478,7 @@ def save_prediction(
         (%s,%s,%s,%s,%s,%s,%s)
         """,
         (
+            fixture_id,
             match,
             prediction,
             confidence,
