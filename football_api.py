@@ -183,8 +183,9 @@ def check_results():
         for prediction in pending:
 
             prediction_id = prediction[0]
-            saved_match = prediction[1]
-            saved_bet = prediction[2]
+            fixture_id = prediction[1]
+            saved_match = prediction[2]
+            saved_bet = prediction[3]
 
             for fixture in fixtures:
 

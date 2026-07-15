@@ -531,6 +531,7 @@ def get_pending_predictions():
     cur.execute("""
         SELECT
             id,
+            fixture_id,
             match,
             prediction
         FROM predictions
