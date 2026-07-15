@@ -150,13 +150,6 @@ def check_results():
 
     try:
 
-        today = datetime.date.today().isoformat()
-
-        url = (
-            f"https://v3.football.api-sports.io/"
-            f"fixtures?date={today}"
-        )
-
         headers = {
             "x-apisports-key": FOOTBALL_API_KEY
         }
@@ -187,33 +180,44 @@ def check_results():
             saved_match = prediction[2]
             saved_bet = prediction[3]
 
-            for fixture in fixtures:
+            url = (
+                f"https://v3.football.api-sports.io/"
+                f"fixtures?id={fixture_id}"
+            )
 
-                home = fixture["teams"]["home"]["name"]
-                away = fixture["teams"]["away"]["name"]
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=20
+            ).json()
 
-                match_name = f"{home} vs {away}"
+            fixtures = response.get("response", [])
 
-                if match_name != saved_match:
-                    continue
+            if not fixtures:
+                continue
 
-                status = fixture["fixture"]["status"]["short"]
+            fixture = fixtures[0]
 
-                if status != "FT":
-                    continue
+            home_goals = fixture["goals"]["home"]
+            away_goals = fixture["goals"]["away"]
 
-                home_goals = fixture["goals"]["home"]
-                away_goals = fixture["goals"]["away"]
+            status = fixture["fixture"]["status"]["short"]
 
-                final_score = (
+            if status != "FT":
+                continue
+
+            home_goals = fixture["goals"]["home"]
+            away_goals = fixture["goals"]["away"]
+
+            final_score = (
                     f"{home_goals}-{away_goals}"
                 )
 
-                result = "LOSS"
+            result = "LOSS"
 
                 # Home Win
 
-                if (
+            if (
                     saved_bet == "Home Win"
                     and home_goals > away_goals
                 ):
@@ -221,7 +225,7 @@ def check_results():
 
                 # Away Win
 
-                elif (
+            elif (
                     saved_bet == "Away Win"
                     and away_goals > home_goals
                 ):
@@ -229,7 +233,7 @@ def check_results():
 
                 # Over 1.5
 
-                elif (
+            elif (
                     saved_bet == "Over 1.5 Goals"
                     and (home_goals + away_goals) >= 2
                 ):
@@ -237,7 +241,7 @@ def check_results():
 
                 # Over 2.5
 
-                elif (
+            elif (
                     saved_bet == "Over 2.5 Goals"
                     and (home_goals + away_goals) >= 3
                 ):
@@ -245,20 +249,20 @@ def check_results():
 
                 # BTTS
 
-                elif (
+            elif (
                     saved_bet == "BTTS"
                     and home_goals > 0
                     and away_goals > 0
                 ):
                     result = "WIN"
 
-                update_prediction_result(
+            update_prediction_result(
                     prediction_id,
                     result,
                     final_score
                 )
 
-                print(
+            print(
                     f"{saved_match} -> {result}"
                 )
 
