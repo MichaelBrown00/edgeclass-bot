@@ -99,6 +99,8 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bets = ai_model()
 
+    print("BETS RETURNED:", bets)
+
     if not bets:
         await update.message.reply_text(
             "⚠️ No strong edge found today."
