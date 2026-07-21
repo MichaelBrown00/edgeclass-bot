@@ -99,6 +99,10 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bets = ai_model()
 
+    print("========== /predict ==========")
+    print("BETS RETURNED:", bets)
+    print("TOTAL BETS:", len(bets))
+
     print("BETS RETURNED:", bets)
 
     if not bets:
