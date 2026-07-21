@@ -63,6 +63,7 @@ def ai_model():
     """
 
     print("========== EDGECLASS AI ==========")
+    print("TOKEN:", FOOTBALL_API_KEY[:8] + "...")
 
     matches = fetch_today_fixtures()
 
