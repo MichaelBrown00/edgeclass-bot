@@ -475,7 +475,7 @@ def save_prediction(
             prediction_date
         )
         VALUES
-        (%s,%s,%s,%s,%s,%s,%s)
+        (%s,%s,%s,%s,%s,%s,%s,%s)
         """,
         (
             fixture_id,
@@ -571,6 +571,29 @@ def update_prediction_result(
     )
 
     conn.commit()
+
+    cur.close()
+    conn.close()
+
+
+def debug_predictions():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            fixture_id,
+            match
+        FROM predictions
+        ORDER BY id DESC
+        LIMIT 20
+    """)
+
+    rows = cur.fetchall()
+
+    for row in rows:
+        print(row)
 
     cur.close()
     conn.close()

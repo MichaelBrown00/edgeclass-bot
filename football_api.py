@@ -8,13 +8,16 @@ from config import FOOTBALL_API_KEY
 
 
 def ai_model():
+    print("========== NEW AI MODEL RUNNING ==========")
     """
-    Fetch today's fixtures and generate structured AI predictions.
+    Fetch today's fixtures and generate AI predictions.
     """
 
     try:
 
         today = datetime.date.today().isoformat()
+
+        print("TODAY:", today)
 
         url = (
             f"https://v3.football.api-sports.io/"
@@ -28,139 +31,7 @@ def ai_model():
         response = requests.get(
             url,
             headers=headers,
-            timeout=20,
-            verify=False
-       )
-
-        print("STATUS:", response.status_code)
-
-        response = response.json()
-
-        fixtures = response.get("response", [])
-
-        print("Fixtures returned:", len(fixtures))
-
-        for f in fixtures[:5]:
-             print(
-        f["teams"]["home"]["name"],
-        "vs",
-        f["teams"]["away"]["name"]
-    )
-
-        print(f"Fixtures from API: {len(fixtures)}")
-        
-        print("TOTAL FIXTURES:", len(fixtures))
-        if not fixtures:
-            return []
-
-        bet_types = [
-            "Over 1.5 Goals",
-            "Over 2.5 Goals",
-            "BTTS",
-            "Home Win",
-            "Away Win"
-        ]
-
-        predictions = []
-
-        for fixture in fixtures[:10]:
-
-            home = fixture["teams"]["home"]["name"]
-            away = fixture["teams"]["away"]["name"]
-
-            league = fixture["league"]["name"]
-
-            kickoff = fixture["fixture"]["date"][11:16]
-
-            print("RAW KICKOFF:", kickoff)
-
-            confidence = random.randint(70, 90)
-
-            odds = round(
-                random.uniform(1.40, 2.40),
-                2
-            )
-
-            prediction = random.choice(
-                bet_types
-            )
-
-            predictions.append({
-
-    "fixture_id":
-        fixture["fixture"]["id"],            
-
-    "match":
-        f"{home} vs {away}",
-
-    "prediction":
-        prediction,
-
-    "confidence":
-        confidence,
-
-    "odds":
-        odds,
-
-    "league":
-        league,
-
-    "kickoff":
-        kickoff,
-
-    "status":
-        "Pending",
-
-    "actual_score":
-        None
-})
-
-        return predictions
-
-    except Exception as e:
-
-        print(
-            "Football API Error:",
-            e
-        )
-
-        return []
-    
-def check_results():
-    """
-    Checks finished matches and updates prediction results.
-    """
-    print("🔄 Scheduler is running...")
-
-    pending = get_pending_predictions()
-
-    print(f"Pending predictions: {len(pending)}")
-
-    for row in pending:
-        print(row)
-
-    print(f"Pending predictions: {len(pending)}")
-
-    for row in pending:
-        print(row)
-
-    if not pending:
-        print("No pending predictions.")
-        return
-
-    try:
-
-        headers = {
-            "x-apisports-key": FOOTBALL_API_KEY
-        }
-
-        print("Calling Football API...")
-
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=20,
-            verify=False
+            timeout=20
         )
 
         print("STATUS:", response.status_code)
@@ -171,14 +42,44 @@ def check_results():
 
         fixtures = response.get("response", [])
 
-        print(f"Fixtures from API: {len(fixtures)}")
+        print("Fixtures returned:", len(fixtures))
 
-        for prediction in pending:
+        if not fixtures:
+            return []
 
-            prediction_id = prediction[0]
-            fixture_id = prediction[1]
-            saved_match = prediction[2]
-            saved_bet = prediction[3]
+    except Exception as e:
+
+        print("Football API Error:", e)
+
+        return []
+    
+    
+def check_results():
+    """
+    Check every pending prediction and update it
+    once the fixture has finished.
+    """
+
+    print("🔄 Scheduler running...")
+
+    pending = get_pending_predictions()
+
+    if not pending:
+        print("No pending predictions.")
+        return
+
+    headers = {
+        "x-apisports-key": FOOTBALL_API_KEY
+    }
+
+    for prediction in pending:
+
+        prediction_id = prediction[0]
+        fixture_id = prediction[1]
+        saved_match = prediction[2]
+        saved_bet = prediction[3]
+
+        try:
 
             url = (
                 f"https://v3.football.api-sports.io/"
@@ -194,81 +95,70 @@ def check_results():
             fixtures = response.get("response", [])
 
             if not fixtures:
+                print(f"No fixture found: {fixture_id}")
                 continue
 
             fixture = fixtures[0]
 
-            home_goals = fixture["goals"]["home"]
-            away_goals = fixture["goals"]["away"]
-
             status = fixture["fixture"]["status"]["short"]
 
             if status != "FT":
+                print(f"{saved_match} still not finished.")
                 continue
 
             home_goals = fixture["goals"]["home"]
             away_goals = fixture["goals"]["away"]
 
             final_score = (
-                    f"{home_goals}-{away_goals}"
-                )
+                f"{home_goals}-{away_goals}"
+            )
 
             result = "LOSS"
 
-                # Home Win
-
             if (
-                    saved_bet == "Home Win"
-                    and home_goals > away_goals
-                ):
-                    result = "WIN"
-
-                # Away Win
+                saved_bet == "Home Win"
+                and home_goals > away_goals
+            ):
+                result = "WIN"
 
             elif (
-                    saved_bet == "Away Win"
-                    and away_goals > home_goals
-                ):
-                    result = "WIN"
-
-                # Over 1.5
+                saved_bet == "Away Win"
+                and away_goals > home_goals
+            ):
+                result = "WIN"
 
             elif (
-                    saved_bet == "Over 1.5 Goals"
-                    and (home_goals + away_goals) >= 2
-                ):
-                    result = "WIN"
-
-                # Over 2.5
+                saved_bet == "Over 1.5 Goals"
+                and (home_goals + away_goals) >= 2
+            ):
+                result = "WIN"
 
             elif (
-                    saved_bet == "Over 2.5 Goals"
-                    and (home_goals + away_goals) >= 3
-                ):
-                    result = "WIN"
-
-                # BTTS
+                saved_bet == "Over 2.5 Goals"
+                and (home_goals + away_goals) >= 3
+            ):
+                result = "WIN"
 
             elif (
-                    saved_bet == "BTTS"
-                    and home_goals > 0
-                    and away_goals > 0
-                ):
-                    result = "WIN"
+                saved_bet == "BTTS"
+                and home_goals > 0
+                and away_goals > 0
+            ):
+                result = "WIN"
 
             update_prediction_result(
-                    prediction_id,
-                    result,
-                    final_score
-                )
+                prediction_id,
+                result,
+                final_score
+            )
 
             print(
-                    f"{saved_match} -> {result}"
-                )
+                f"✅ {saved_match} -> {result}"
+            )
 
-    except Exception as e:
+        except Exception as e:
 
-        print(
-            "Result Checker Error:",
-            e
-        )
+            print(
+                f"Error checking {saved_match}:",
+                e
+            )

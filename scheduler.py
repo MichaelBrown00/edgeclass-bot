@@ -14,6 +14,11 @@ print("🚀 EdgeClass Scheduler Started")
 
 init_db()
 
+from database import debug_predictions
+
+debug_predictions()
+exit()
+
 scheduler = BlockingScheduler()
 
 scheduler.add_job(
