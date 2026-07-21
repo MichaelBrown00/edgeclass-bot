@@ -99,9 +99,6 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     bets = ai_model()
 
-    for bet in bets:
-        print(bet)
-
     if not bets:
         await update.message.reply_text(
             "⚠️ No strong edge found today."
@@ -125,14 +122,11 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += (
             f"⚽ {bet['match']}\n"
             f"🏆 {bet['league']}\n"
+            f"🕒 Kickoff: {bet['kickoff']} WAT\n"
             f"🎯 Bet: {bet['prediction']}\n"
             f"📈 Confidence: {bet['confidence']}%\n"
             f"💰 Odds: {bet['odds']}\n\n"
         )
-
-        bets = ai_model()
-
-        print(bets)
 
     await update.message.reply_text(message)
 

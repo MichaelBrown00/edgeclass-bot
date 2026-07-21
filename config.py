@@ -10,6 +10,7 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 # APIs
 FOOTBALL_API_KEY = os.getenv("FOOTBALL_API_KEY")
+FOOTBALL_DATA_KEY = os.getenv("FOOTBALL_DATA_KEY")
 PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 
 # Database
