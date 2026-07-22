@@ -572,6 +572,8 @@ def update_prediction_result(
 
     conn.commit()
 
+    print("✅ Prediction saved to database.")
+
     cur.close()
     conn.close()
 
