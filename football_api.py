@@ -1,5 +1,4 @@
 import datetime
-import random
 import requests
 
 from datetime import datetime, timedelta
@@ -48,6 +47,69 @@ def fetch_today_fixtures():
         return []
     
 
+def fetch_team_recent_matches(team_id, limit=5):
+    """
+    Fetch recent matches for one team.
+    """
+
+    url = (
+        f"https://api.football-data.org/v4/"
+        f"teams/{team_id}/matches?limit={limit}"
+    )
+
+    headers = {
+        "X-Auth-Token": config.FOOTBALL_DATA_KEY
+    }
+
+    try:
+
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=20
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data.get("matches", [])
+
+    except Exception as e:
+
+        print(f"Error fetching team {team_id}:", e)
+
+        return []
+    
+
+def analyze_match(match):
+
+    home = match["homeTeam"]["name"]
+    away = match["awayTeam"]["name"]
+
+    home_strength = len(home)
+    away_strength = len(away)
+
+    score = home_strength - away_strength
+
+    if score >= 5:
+        prediction = "Home Win"
+        confidence = 86
+        odds = 1.60
+
+    elif score <= -5:
+        prediction = "Away Win"
+        confidence = 86
+        odds = 1.70
+
+    else:
+        prediction = "Over 1.5 Goals"
+        confidence = 80
+        odds = 1.45
+
+    return prediction, confidence, odds
+
+
 def ai_model():
     """
     Generate today's predictions from Football-Data.org.
@@ -61,14 +123,6 @@ def ai_model():
     if not matches:
         print("No fixtures found.")
         return []
-
-    bet_types = [
-        "Home Win",
-        "Away Win",
-        "Over 1.5 Goals",
-        "Over 2.5 Goals",
-        "BTTS"
-    ]
 
     predictions = []
 
@@ -89,11 +143,7 @@ def ai_model():
 
         kickoff = local_time.strftime("%H:%M")
 
-        prediction = random.choice(bet_types)
-
-        confidence = random.randint(72, 90)
-
-        odds = round(random.uniform(1.40, 2.30), 2)
+        prediction, confidence, odds = analyze_match(match)
 
         predictions.append({
 
