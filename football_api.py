@@ -4,7 +4,7 @@ import requests
 
 from datetime import datetime, timedelta
 
-from config import FOOTBALL_API_KEY
+from config import FOOTBALL_DATA_KEY
 
 from database import (
     get_pending_predictions,
@@ -63,7 +63,7 @@ def ai_model():
     """
 
     print("========== EDGECLASS AI ==========")
-    print("TOKEN:", FOOTBALL_API_KEY[:8] + "...")
+    print("TOKEN:", FOOTBALL_DATA_KEY[:8] + "...")
 
     matches = fetch_today_fixtures()
 
