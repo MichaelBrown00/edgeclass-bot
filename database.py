@@ -234,7 +234,6 @@ def reward_referrer(user_id):
     )
 
     conn.commit()
-
     cur.close()
     conn.close()
     
@@ -348,6 +347,7 @@ def expire_user(user_id):
     )
 
     conn.commit()
+
     cur.close()
     conn.close()
 
@@ -491,6 +491,8 @@ def save_prediction(
 
     conn.commit()
 
+    print("✅ Prediction saved to database.")
+
     cur.close()
     conn.close()
 
@@ -571,8 +573,6 @@ def update_prediction_result(
     )
 
     conn.commit()
-
-    print("✅ Prediction saved to database.")
 
     cur.close()
     conn.close()
