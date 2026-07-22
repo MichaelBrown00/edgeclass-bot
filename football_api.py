@@ -4,21 +4,12 @@ import requests
 
 from datetime import datetime, timedelta
 
-from config import FOOTBALL_DATA_KEY
-
 from database import (
     get_pending_predictions,
     update_prediction_result
 )
 
-BASE_URL = "https://v3.football.api-sports.io"
-
-HEADERS = {
-    "x-apisports-key": FOOTBALL_API_KEY
-}
-
-
-from config import FOOTBALL_DATA_KEY
+import config
 
 
 def fetch_today_fixtures():
@@ -26,7 +17,7 @@ def fetch_today_fixtures():
     url = "https://api.football-data.org/v4/matches"
 
     headers = {
-        "X-Auth-Token": FOOTBALL_DATA_KEY
+        "X-Auth-Token": config.FOOTBALL_DATA_KEY
     }
 
     try:
@@ -63,7 +54,7 @@ def ai_model():
     """
 
     print("========== EDGECLASS AI ==========")
-    print("TOKEN:", FOOTBALL_DATA_KEY[:8] + "...")
+    print("TOKEN:", config.FOOTBALL_DATA_KEY[:8] + "...")
 
     matches = fetch_today_fixtures()
 
@@ -152,9 +143,11 @@ def check_results():
             url = f"https://api.football-data.org/v4/matches/{fixture_id}"
 
             response = requests.get(
-                url,
-                headers=HEADERS,
-                timeout=20
+            url,
+            headers={
+            "X-Auth-Token": config.FOOTBALL_DATA_KEY
+            },
+            timeout=20
             )
 
             response.raise_for_status()
