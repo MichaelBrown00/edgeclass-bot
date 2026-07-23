@@ -358,6 +358,8 @@ async def expireme(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    print("===== HISTORY CALLED =====")
+
     if check_subscription(update.effective_user.id) == "free":
         await update.message.reply_text(
             "❌ Upgrade to Premium to view prediction history."
