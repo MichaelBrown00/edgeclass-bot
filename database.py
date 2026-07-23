@@ -525,6 +525,28 @@ def get_prediction_history(limit=10):
     return rows
 
 
+def debug_prediction_columns():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name='predictions'
+        ORDER BY ordinal_position;
+    """)
+
+    rows = cur.fetchall()
+
+    print("====== PREDICTIONS TABLE ======")
+
+    for row in rows:
+        print(row[0])
+
+    cur.close()
+    conn.close()
+
+
 def get_pending_predictions():
 
     conn = get_connection()
@@ -625,4 +647,8 @@ def get_prediction_history(limit=10):
     cur.close()
     conn.close()
 
-    return rows    
+    return rows   
+
+
+if __name__ == "__main__":
+    debug_prediction_columns()

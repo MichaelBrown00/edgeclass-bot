@@ -161,7 +161,13 @@ async def accumulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = "💰 Smart Accumulator\n\n"
 
     for bet in selected:
-        msg += bet + "\n\n"
+
+        msg += (
+            f"⚽ {bet['match']}\n"
+            f"🎯 {bet['prediction']}\n"
+            f"📈 {bet['confidence']}%\n"
+            f"💰 {bet['odds']}\n\n"
+        )
 
     msg += "Estimated Odds: 4.0+"
 
