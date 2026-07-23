@@ -352,6 +352,12 @@ async def expireme(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    if check_subscription(update.effective_user.id) == "free":
+        await update.message.reply_text(
+            "❌ Upgrade to Premium to view prediction history."
+        )
+        return
+
     rows = get_prediction_history()
 
     if not rows:
