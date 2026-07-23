@@ -623,32 +623,5 @@ def debug_predictions():
     conn.close()
 
 
-def get_prediction_history(limit=10):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT
-            match,
-            prediction,
-            confidence,
-            odds,
-            result,
-            actual_score,
-            created_at
-        FROM predictions
-        ORDER BY created_at DESC
-        LIMIT %s
-    """, (limit,))
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows   
-
-
 if __name__ == "__main__":
     debug_prediction_columns()
