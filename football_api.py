@@ -84,30 +84,69 @@ def fetch_team_recent_matches(team_id, limit=5):
 
 def analyze_match(match):
 
-    home = match["homeTeam"]["name"]
-    away = match["awayTeam"]["name"]
+    home_id = match["homeTeam"]["id"]
+    away_id = match["awayTeam"]["id"]
 
-    home_strength = len(home)
-    away_strength = len(away)
+    home_matches = fetch_team_recent_matches(home_id)
+    away_matches = fetch_team_recent_matches(away_id)
 
-    score = home_strength - away_strength
+    def calculate_strength(team_id, matches):
 
-    if score >= 5:
-        prediction = "Home Win"
-        confidence = 86
-        odds = 1.60
+        points = 0
+        goals_scored = 0
+        goals_conceded = 0
 
-    elif score <= -5:
-        prediction = "Away Win"
-        confidence = 86
-        odds = 1.70
+        for m in matches:
+
+            home = m["homeTeam"]["id"] == team_id
+
+            home_goals = m["score"]["fullTime"]["home"] or 0
+            away_goals = m["score"]["fullTime"]["away"] or 0
+
+            if home:
+
+                goals_scored += home_goals
+                goals_conceded += away_goals
+
+                if home_goals > away_goals:
+                    points += 3
+                elif home_goals == away_goals:
+                    points += 1
+
+            else:
+
+                goals_scored += away_goals
+                goals_conceded += home_goals
+
+                if away_goals > home_goals:
+                    points += 3
+                elif away_goals == home_goals:
+                    points += 1
+
+        strength = (
+            points * 10
+            + goals_scored * 2
+            - goals_conceded
+        )
+
+        return strength
+
+    home_strength = calculate_strength(home_id, home_matches)
+    away_strength = calculate_strength(away_id, away_matches)
+
+    difference = home_strength - away_strength
+
+    if difference >= 12:
+        return "Home Win", 88, 1.65
+
+    elif difference <= -12:
+        return "Away Win", 88, 1.70
+
+    elif abs(difference) <= 4:
+        return "BTTS", 78, 1.80
 
     else:
-        prediction = "Over 1.5 Goals"
-        confidence = 80
-        odds = 1.45
-
-    return prediction, confidence, odds
+        return "Over 1.5 Goals", 82, 1.45
 
 
 def ai_model():
