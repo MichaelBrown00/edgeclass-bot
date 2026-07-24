@@ -11,6 +11,7 @@ def get_connection():
 
 
 def init_db():
+    remove_duplicate_predictions()
     conn = get_connection()
     cur = conn.cursor()
 
@@ -461,40 +462,107 @@ def save_prediction(
     conn = get_connection()
     cur = conn.cursor()
 
+    # Check whether this fixture already exists
     cur.execute(
         """
-        INSERT INTO predictions
-        (
-            fixture_id,
-            match,
-            prediction,
-            confidence,
-            odds,
-            league,
-            kickoff,
-            prediction_date
-        )
-        VALUES
-        (%s,%s,%s,%s,%s,%s,%s,%s)
+        SELECT id
+        FROM predictions
+        WHERE fixture_id=%s
         """,
-        (
-            fixture_id,
-            match,
-            prediction,
-            confidence,
-            odds,
-            league,
-            kickoff,
-            datetime.now().strftime("%Y-%m-%d")
-        )
+        (fixture_id,)
     )
+
+    existing = cur.fetchone()
+
+    if existing:
+
+        cur.execute(
+            """
+            UPDATE predictions
+            SET
+                match=%s,
+                prediction=%s,
+                confidence=%s,
+                odds=%s,
+                league=%s,
+                kickoff=%s,
+                prediction_date=%s
+            WHERE fixture_id=%s
+            """,
+            (
+                match,
+                prediction,
+                confidence,
+                odds,
+                league,
+                kickoff,
+                datetime.now().strftime("%Y-%m-%d"),
+                fixture_id
+            )
+        )
+
+        print(f"🔄 Updated prediction {fixture_id}")
+
+    else:
+
+        cur.execute(
+            """
+            INSERT INTO predictions
+            (
+                fixture_id,
+                match,
+                prediction,
+                confidence,
+                odds,
+                league,
+                kickoff,
+                prediction_date
+            )
+            VALUES
+            (%s,%s,%s,%s,%s,%s,%s,%s)
+            """,
+            (
+                fixture_id,
+                match,
+                prediction,
+                confidence,
+                odds,
+                league,
+                kickoff,
+                datetime.now().strftime("%Y-%m-%d")
+            )
+        )
+
+        print(f"✅ Saved new prediction {fixture_id}")
 
     conn.commit()
 
-    print("✅ Prediction saved to database.")
+    cur.close()
+    conn.close()
+
+
+def remove_duplicate_predictions():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        DELETE FROM predictions
+        WHERE id NOT IN (
+            SELECT MAX(id)
+            FROM predictions
+            GROUP BY fixture_id
+        );
+    """)
+
+    deleted = cur.rowcount
+
+    conn.commit()
 
     cur.close()
     conn.close()
+
+    print(f"🧹 Removed {deleted} duplicate predictions.")
 
 
 def get_prediction_history(limit=10):

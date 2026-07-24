@@ -23,6 +23,7 @@ from database import (
     check_subscription,
     save_prediction,
     get_prediction_history,
+    remove_duplicate_predictions,
 )
 
 from payments import create_payment
