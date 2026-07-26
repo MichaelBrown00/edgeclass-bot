@@ -634,6 +634,30 @@ def remove_duplicate_predictions():
     print(f"🧹 Removed {deleted} duplicate predictions.")
 
 
+def get_pending_predictions():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            fixture_id,
+            match,
+            prediction
+        FROM predictions
+        WHERE status='Pending'
+        AND fixture_id IS NOT NULL
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
 def get_prediction_history(plan, limit=10):
 
     conn = get_connection()
