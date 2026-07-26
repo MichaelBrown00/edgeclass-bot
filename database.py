@@ -72,11 +72,6 @@ def init_db():
     ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'premium'
 """)
     
-    cur.execute("""
-ALTER TABLE predictions
-ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'premium'
-""")
-
     conn.commit()
     cur.close()
     conn.close()
@@ -706,6 +701,36 @@ def debug_prediction_columns():
 
     for row in rows:
         print(row[0])
+
+    cur.close()
+    conn.close()
+
+
+def update_prediction_result(
+    prediction_id,
+    result,
+    actual_score
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE predictions
+        SET
+            status=%s,
+            actual_score=%s
+        WHERE id=%s
+        """,
+        (
+            result,
+            actual_score,
+            prediction_id
+        )
+    )
+
+    conn.commit()
 
     cur.close()
     conn.close()
