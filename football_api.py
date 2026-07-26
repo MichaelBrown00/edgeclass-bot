@@ -47,6 +47,42 @@ def fetch_today_fixtures():
         return []
     
 
+def fetch_fixtures_for_date(date_string):
+
+    url = (
+        "https://api.football-data.org/v4/matches"
+        f"?dateFrom={date_string}&dateTo={date_string}"
+    )
+
+    headers = {
+        "X-Auth-Token": config.FOOTBALL_DATA_KEY
+    }
+
+    try:
+
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=20
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        matches = data.get("matches", [])
+
+        print(f"{date_string}: {len(matches)} matches")
+
+        return matches
+
+    except Exception as e:
+
+        print(e)
+
+        return []
+    
+
 def fetch_team_recent_matches(team_id, limit=5):
     """
     Fetch recent matches for one team.
@@ -147,9 +183,125 @@ def analyze_match(match):
 
     else:
         return "Over 1.5 Goals", 82, 1.45
+    
+
+def analyze_match_premium(match):
+
+    home_id = match["homeTeam"]["id"]
+    away_id = match["awayTeam"]["id"]
+
+    home_matches = fetch_team_recent_matches(home_id)
+    away_matches = fetch_team_recent_matches(away_id)
+
+    def stats(team_id, matches):
+
+        wins = 0
+        goals_for = 0
+        goals_against = 0
+        clean_sheets = 0
+        btts = 0
+
+        for m in matches:
+
+            home = m["homeTeam"]["id"] == team_id
+
+            hg = m["score"]["fullTime"]["home"] or 0
+            ag = m["score"]["fullTime"]["away"] or 0
+
+            if home:
+
+                gf = hg
+                ga = ag
+
+            else:
+
+                gf = ag
+                ga = hg
+
+            goals_for += gf
+            goals_against += ga
+
+            if gf > ga:
+                wins += 1
+
+            if ga == 0:
+                clean_sheets += 1
+
+            if gf > 0 and ga > 0:
+                btts += 1
+
+        games = max(len(matches), 1)
+
+        return {
+
+            "wins": wins,
+
+            "gf_avg": goals_for / games,
+
+            "ga_avg": goals_against / games,
+
+            "clean": clean_sheets,
+
+            "btts": btts
+
+        }
+
+    home = stats(home_id, home_matches)
+    away = stats(away_id, away_matches)
+
+    home_score = 0
+    away_score = 0
+
+    # Recent wins
+    home_score += home["wins"] * 4
+    away_score += away["wins"] * 4
+
+    # Attack strength
+    home_score += home["gf_avg"] * 6
+    away_score += away["gf_avg"] * 6
+
+    # Defensive strength
+    home_score -= home["ga_avg"] * 4
+    away_score -= away["ga_avg"] * 4
+
+    # Clean sheets
+    home_score += home["clean"] * 2
+    away_score += away["clean"] * 2
+
+    # Home advantage
+    home_score += 5
+
+    difference = home_score - away_score
+
+    if difference >= 10:
+
+        confidence = min(96, int(82 + abs(difference) / 3))
+        return "Home Win", confidence, 1.65
+
+    elif difference <= -10:
+
+        confidence = min(96, int(82 + abs(difference) / 3))
+        return "Away Win", confidence, 1.75
+
+    elif home["btts"] >= 3 and away["btts"] >= 3:
+
+        return "BTTS", 84, 1.90
+
+    elif (home["gf_avg"] + away["gf_avg"]) >= 2.8:
+
+        return "Over 2.5 Goals", 86, 1.95
+
+    else:
+
+        return "Over 1.5 Goals", 80, 1.45
 
 
-def ai_model():
+def analyze_match_vip(match):
+
+    return analyze_match_premium(match)
+
+
+def ai_model(plan="premium"):
     """
     Generate today's predictions from Football-Data.org.
     """
@@ -159,9 +311,39 @@ def ai_model():
 
     matches = fetch_today_fixtures()
 
+    # No fixtures today? Search ahead depending on plan.
     if not matches:
-        print("No fixtures found.")
-        return []
+ 
+        if plan == "vip":
+            search_days = 7
+
+        elif plan == "premium":
+            search_days = 4
+
+        else:
+            search_days = 0
+
+        for i in range(1, search_days + 1):
+
+            future_date = (
+                datetime.now() + timedelta(days=i)
+            ).strftime("%Y-%m-%d")
+
+            print(f"Searching {future_date}...")
+
+            matches = fetch_fixtures_for_date(future_date)
+
+            if matches:
+
+                print(f"Found fixtures on {future_date}")
+
+                break
+
+        if not matches:
+
+            print("No fixtures found.")
+
+            return []
 
     predictions = []
 
@@ -180,9 +362,18 @@ def ai_model():
 
         local_time = utc_time + timedelta(hours=1)
 
-        kickoff = local_time.strftime("%H:%M")
+        kickoff = local_time.strftime("%d %b • %H:%M")
 
-        prediction, confidence, odds = analyze_match(match)
+        fixture_date = local_time.strftime("%A, %d %b")
+
+        if plan == "vip":
+            prediction, confidence, odds = analyze_match_vip(match)
+
+        elif plan == "premium":
+            prediction, confidence, odds = analyze_match_premium(match)
+
+        else:
+            prediction, confidence, odds = analyze_match(match)
 
         predictions.append({
 
@@ -200,16 +391,144 @@ def ai_model():
 
             "kickoff": kickoff,
 
+            "fixture_date": fixture_date,
+
             "status": "Pending",
 
             "actual_score": None
         })
+
+    # Confidence threshold
+    if plan == "vip":
+        minimum_confidence = 90
+        max_search_days = 7
+
+    elif plan == "premium":
+        minimum_confidence = 75
+        max_search_days = 4
+
+    else:
+        minimum_confidence = 75
+        max_search_days = 0
+
+
+    predictions = [
+        p for p in predictions
+        if p["confidence"] >= minimum_confidence
+    ]
+
+
+    # Premium/VIP: if today's matches aren't good enough,
+    # keep searching future days.
+    if not predictions and max_search_days > 0:
+
+        print("No strong edge today. Searching future fixtures...")
+
+        for day in range(1, max_search_days + 1):
+
+            future_date = (
+                datetime.now() + timedelta(days=day)
+            ).strftime("%Y-%m-%d")
+
+            matches = fetch_fixtures_for_date(future_date)
+
+            if not matches:
+               continue
+
+            predictions = []
+
+            for match in matches:
+
+                fixture_id = match["id"]
+
+                home = match["homeTeam"]["name"]
+                away = match["awayTeam"]["name"]
+
+                league = match["competition"]["name"]
+
+                utc_time = datetime.fromisoformat(
+                   match["utcDate"].replace("Z", "+00:00")
+                )
+
+                local_time = utc_time + timedelta(hours=1)
+
+                kickoff = local_time.strftime("%d %b • %H:%M")
+
+                fixture_date = local_time.strftime("%A, %d %b")
+
+                if plan == "vip":
+                    prediction, confidence, odds = analyze_match_vip(match)
+
+                elif plan == "premium":
+                    prediction, confidence, odds = analyze_match_premium(match)
+
+                else:
+                    prediction, confidence, odds = analyze_match(match)
+
+                if confidence >= minimum_confidence:
+
+                    predictions.append({
+
+                        "fixture_id": fixture_id,
+                        "match": f"{home} vs {away}",
+                        "prediction": prediction,
+                        "confidence": confidence,
+                        "odds": odds,
+                        "league": league,
+                        "kickoff": kickoff,
+                        "fixture_date": fixture_date,
+                        "status": "Pending",
+                        "actual_score": None
+
+                   })
+
+            if predictions:
+
+                print(f"Found {len(predictions)} strong predictions on {future_date}")
+                break
 
     print(f"Generated {len(predictions)} predictions.")
 
     return predictions
     
     
+def update_finished_predictions():
+
+    headers = {
+    "X-Auth-Token": config.FOOTBALL_DATA_KEY
+    }
+
+    pending = get_pending_predictions()
+
+    print(f"Pending predictions: {len(pending)}")
+
+    for row in pending:
+
+        prediction_id = row[0]
+        fixture_id = row[1]
+        match_name = row[2]
+        prediction = row[3]
+
+        print(f"Checking fixture {fixture_id}")
+
+        response = requests.get(
+            f"https://api.football-data.org/v4/matches/{fixture_id}",
+            headers=headers
+        )
+
+        if response.status_code != 200:
+            print("Could not retrieve match.")
+            continue
+
+        match = response.json()
+
+        if match["status"] != "FINISHED":
+            print("Match not finished yet.")
+            continue
+
+        print("Finished match found.")
+
+
 def check_results():
 
     print("🔄 Scheduler running...")
@@ -226,6 +545,10 @@ def check_results():
         fixture_id = prediction[1]
         saved_match = prediction[2]
         saved_bet = prediction[3]
+
+        if fixture_id is None:
+            print(f"Skipping prediction {prediction_id}: no fixture_id")
+            continue
 
         try:
 
@@ -285,8 +608,9 @@ def check_results():
 
 
 if __name__ == "__main__":
-
     predictions = ai_model()
 
     for prediction in predictions:
         print(prediction)
+
+    check_results()      

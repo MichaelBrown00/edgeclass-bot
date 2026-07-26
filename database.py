@@ -56,7 +56,9 @@ def init_db():
 
             status TEXT DEFAULT 'Pending',
 
-            actual_score TEXT
+            actual_score TEXT,
+
+            tier TEXT DEFAULT 'premium'
         )
     """)
 
@@ -64,10 +66,70 @@ def init_db():
     ALTER TABLE predictions
     ADD COLUMN IF NOT EXISTS fixture_id BIGINT
 """)
+    
+    cur.execute("""
+    ALTER TABLE predictions
+    ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'premium'
+""")
+    
+    cur.execute("""
+ALTER TABLE predictions
+ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'premium'
+""")
 
     conn.commit()
     cur.close()
     conn.close()
+
+
+def todays_predictions_exist():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT COUNT(*)
+        FROM predictions
+        WHERE prediction_date=%s
+    """, (
+        datetime.now().strftime("%Y-%m-%d"),
+    ))
+
+    count = cur.fetchone()[0]
+
+    cur.close()
+    conn.close()
+
+    return count > 0
+
+
+def get_todays_predictions():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            fixture_id,
+            match,
+            prediction,
+            confidence,
+            odds,
+            league,
+            kickoff
+        FROM predictions
+        WHERE prediction_date=%s
+        ORDER BY confidence DESC
+    """, (
+        datetime.now().strftime("%Y-%m-%d"),
+    ))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
 
 
 def add_user(user_id, ref=None):
@@ -457,7 +519,8 @@ def save_prediction(
     confidence,
     odds,
     league,
-    kickoff
+    kickoff,
+    tier="premium"
 ):
     conn = get_connection()
     cur = conn.cursor()
@@ -474,6 +537,8 @@ def save_prediction(
 
     existing = cur.fetchone()
 
+    print(f"fixture_id={fixture_id}, existing={existing}")
+
     if existing:
 
         cur.execute(
@@ -486,7 +551,8 @@ def save_prediction(
                 odds=%s,
                 league=%s,
                 kickoff=%s,
-                prediction_date=%s
+                prediction_date=%s,
+                tier=%s
             WHERE fixture_id=%s
             """,
             (
@@ -497,6 +563,7 @@ def save_prediction(
                 league,
                 kickoff,
                 datetime.now().strftime("%Y-%m-%d"),
+                tier,
                 fixture_id
             )
         )
@@ -516,10 +583,11 @@ def save_prediction(
                 odds,
                 league,
                 kickoff,
-                prediction_date
+                prediction_date,
+                tier
             )
             VALUES
-            (%s,%s,%s,%s,%s,%s,%s,%s)
+            (%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
                 fixture_id,
@@ -529,7 +597,8 @@ def save_prediction(
                 odds,
                 league,
                 kickoff,
-                datetime.now().strftime("%Y-%m-%d")
+                datetime.now().strftime("%Y-%m-%d"),
+                tier
             )
         )
 
@@ -565,7 +634,7 @@ def remove_duplicate_predictions():
     print(f"🧹 Removed {deleted} duplicate predictions.")
 
 
-def get_prediction_history(limit=10):
+def get_prediction_history(plan, limit=10):
 
     conn = get_connection()
     cur = conn.cursor()
@@ -579,11 +648,13 @@ def get_prediction_history(limit=10):
             league,
             kickoff,
             status,
-            actual_score
+            actual_score,
+            tier
         FROM predictions
+        WHERE tier=%s
         ORDER BY id DESC
         LIMIT %s
-    """, (limit,))
+    """, (plan, limit,))
 
     rows = cur.fetchall()
 
@@ -594,6 +665,7 @@ def get_prediction_history(limit=10):
 
 
 def debug_prediction_columns():
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -613,83 +685,3 @@ def debug_prediction_columns():
 
     cur.close()
     conn.close()
-
-
-def get_pending_predictions():
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT
-            id,
-            fixture_id,
-            match,
-            prediction
-        FROM predictions
-        WHERE status='Pending'
-    """)
-
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return rows
-
-
-def update_prediction_result(
-    prediction_id,
-    status,
-    actual_score
-):
-
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        """
-        UPDATE predictions
-        SET
-            status=%s,
-            actual_score=%s
-        WHERE id=%s
-        """,
-        (
-            status,
-            actual_score,
-            prediction_id
-        )
-    )
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-
-def debug_predictions():
-    conn = get_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT
-            id,
-            fixture_id,
-            match
-        FROM predictions
-        ORDER BY id DESC
-        LIMIT 20
-    """)
-
-    rows = cur.fetchall()
-
-    for row in rows:
-        print(row)
-
-    cur.close()
-    conn.close()
-
-
-if __name__ == "__main__":
-    debug_prediction_columns()

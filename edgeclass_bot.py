@@ -97,8 +97,9 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Upgrade to Premium to use this feature."
         )
         return
+    plan = check_subscription(update.effective_user.id)
 
-    bets = ai_model()
+    bets = ai_model(plan)
 
     print("========== /predict ==========")
     print("BETS RETURNED:", bets)
@@ -114,7 +115,16 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message = "🔥 EdgeClass AI Predictions\n\n"
 
-    for bet in bets[:5]:
+    if plan == "vip":
+        bets = bets[:3]
+
+    elif plan == "premium":
+        bets = bets[:5]
+
+    else:
+        bets = bets[:1]
+
+    for bet in bets:
 
         save_prediction(
             bet["fixture_id"],
@@ -123,7 +133,8 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             bet["confidence"],
             bet["odds"],
             bet["league"],
-            bet["kickoff"]
+            bet["kickoff"],
+            tier=plan
         )
 
         message += (
@@ -145,8 +156,9 @@ async def accumulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ Upgrade to Premium."
         )
         return
+    plan = check_subscription(update.effective_user.id)
 
-    bets = ai_model()
+    bets = ai_model(plan)
 
     if not bets:
         await update.message.reply_text(
@@ -367,7 +379,9 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    rows = get_prediction_history()
+    plan = check_subscription(update.effective_user.id)
+
+    rows = get_prediction_history(plan)
 
     if not rows:
 
@@ -389,10 +403,21 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
             league,
             kickoff,
             status,
-            actual_score
+            actual_score,
+            tier
         ) = row
 
+        if tier == "vip":
+           badge = "👑 VIP Prediction"
+
+        elif tier == "premium":
+             badge = "⭐ Premium Prediction"
+
+        else:
+            badge = "🆓 Free Prediction"
+
         message += (
+            f"{badge}\n"
             "━━━━━━━━━━━━━━━━━━\n\n"
 
             f"⚽ {match}\n\n"
