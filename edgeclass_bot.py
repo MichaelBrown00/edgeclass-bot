@@ -1,5 +1,6 @@
 import random
 
+from analytics import get_prediction_stats
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
@@ -134,16 +135,124 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
             bet["odds"],
             bet["league"],
             bet["kickoff"],
+
+            bet["grade"],
+            bet["value"],
+            bet["edge"],
+            bet["reasoning"],
+            bet["home_rating"],
+            bet["away_rating"],
+
             tier=plan
         )
 
-        message += (
+        if plan == "free":
+
+            message += (
+                f"⚽ {bet['match']}\n"
+                f"🏆 {bet['league']}\n"
+                f"🕒 {bet['kickoff']} WAT\n\n"
+
+                f"🎯 Prediction\n"
+                f"{bet['prediction']}\n\n"
+
+                f"📈 Confidence\n"
+                f"{bet['confidence']}%\n\n"
+
+                f"💰 Odds\n"
+                f"{bet['odds']}\n\n"
+
+               "━━━━━━━━━━━━━━━━━━\n\n"
+            )
+
+        elif plan == "premium":
+
+            message += (
+                f"⭐ PREMIUM AI REPORT\n\n"
+
+                f"⚽ {bet['match']}\n"
+                f"🏆 {bet['league']}\n"
+                f"🕒 {bet['kickoff']} WAT\n\n"
+
+                f"🎯 Prediction\n"
+                f"{bet['prediction']}\n\n"
+
+                f"📈 Confidence\n"
+                f"{bet['confidence']}%\n\n"
+
+                f"🏅 Grade\n"
+                f"{bet['grade']}\n\n"
+
+                f"💎 Value\n"
+                f"{bet['value']}\n\n"
+
+                f"🔥 Edge\n"
+                f"{bet['edge']}\n\n"
+
+                f"🧠 AI Reasoning\n"
+                f"{bet['reasoning']}\n\n"
+
+                f"💰 Odds\n"
+                f"{bet['odds']}\n\n"
+
+                "━━━━━━━━━━━━━━━━━━\n\n"
+            )
+
+        else:
+
+            message += (
+            f"👑 VIP AI REPORT\n\n"
+
             f"⚽ {bet['match']}\n"
             f"🏆 {bet['league']}\n"
-            f"🕒 Kickoff: {bet['kickoff']} WAT\n"
-            f"🎯 Bet: {bet['prediction']}\n"
-            f"📈 Confidence: {bet['confidence']}%\n"
-            f"💰 Odds: {bet['odds']}\n\n"
+            f"🕒 {bet['kickoff']} WAT\n\n"
+
+            f"🎯 Prediction\n"
+            f"{bet['prediction']}\n\n"
+
+            f"📈 Confidence\n"
+            f"{bet['confidence']}%\n\n"
+
+            f"🏅 Grade\n"
+            f"{bet['grade']}\n\n"
+
+            f"💎 Value\n"
+            f"{bet['value']}\n\n"
+
+            f"🔥 Edge\n"
+            f"{bet['edge']}\n\n"
+
+            "━━━━━━━━━━━━━━━━━━\n\n"
+
+            "🏠 HOME AI\n\n"
+
+            f"⭐ Overall Rating: {bet['home_rating']}\n"
+            f"📊 Form: {bet['home_form']}\n"
+            f"⚔ Attack: {bet['home_attack']}\n"
+            f"🛡 Defense: {bet['home_defense']}\n"
+            f"🚀 Momentum: {bet['home_momentum']}\n"
+            f"🎯 xG: {bet['home_xg']}\n"
+            f"🚫 xGA: {bet['home_xga']}\n\n"
+
+            "━━━━━━━━━━━━━━━━━━\n\n"
+
+            "✈️ AWAY AI\n\n"
+
+            f"⭐ Overall Rating: {bet['away_rating']}\n"
+            f"📊 Form: {bet['away_form']}\n"
+            f"⚔ Attack: {bet['away_attack']}\n"
+            f"🛡 Defense: {bet['away_defense']}\n"
+            f"🚀 Momentum: {bet['away_momentum']}\n"
+            f"🎯 xG: {bet['away_xg']}\n"
+            f"🚫 xGA: {bet['away_xga']}\n\n"
+
+            f"🧠 AI Reasoning\n"
+            f"{bet['reasoning']}\n\n"
+
+            f"💰 Odds\n"
+            f"{bet['odds']}\n\n"
+
+            "━━━━━━━━━━━━━━━━━━\n\n"
         )
 
     await update.message.reply_text(message)
@@ -452,6 +561,31 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
 
+async def stats_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    stats = get_prediction_stats()
+
+    message = f"""
+📊 EDGECLASS AI PERFORMANCE
+
+━━━━━━━━━━━━━━━━━━
+
+🎯 Total Predictions
+{stats['total']}
+
+✅ Wins
+{stats['wins']}
+
+❌ Losses
+{stats['losses']}
+
+📈 Strike Rate
+{stats['strike_rate']}%
+"""
+
+    await update.message.reply_text(message)
+
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
@@ -472,6 +606,10 @@ EdgeClass Commands
     )
 
 
+# ================= DATABASE =================
+
+init_db()
+
 # ================= APPLICATION =================
 
 application = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -488,7 +626,7 @@ application.add_handler(CommandHandler("myplan", myplan))
 application.add_handler(CommandHandler("admin_expire", expireme))
 application.add_handler(CommandHandler("history", history))
 application.add_handler(CommandHandler("help", help_cmd))
-
+application.add_handler(CommandHandler("stats_ai", stats_ai))
 
 async def process_telegram_update(update_dict):
     await application.initialize()

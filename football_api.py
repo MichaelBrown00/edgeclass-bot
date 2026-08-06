@@ -1,7 +1,9 @@
-import datetime
 import requests
+import time
 
 from datetime import datetime, timedelta
+
+from prediction_engine import predict_match
 
 from database import (
     get_pending_predictions,
@@ -9,6 +11,12 @@ from database import (
 )
 
 import config
+
+# ============================================
+# TEAM FORM CACHE
+# ============================================
+
+TEAM_FORM_CACHE = {}
 
 
 def fetch_today_fixtures():
@@ -85,8 +93,11 @@ def fetch_fixtures_for_date(date_string):
 
 def fetch_team_recent_matches(team_id, limit=5):
     """
-    Fetch recent matches for one team.
+    Fetch recent matches with memory cache.
     """
+
+    if team_id in TEAM_FORM_CACHE:
+        return TEAM_FORM_CACHE[team_id]
 
     url = (
         f"https://api.football-data.org/v4/"
@@ -107,199 +118,18 @@ def fetch_team_recent_matches(team_id, limit=5):
 
         response.raise_for_status()
 
-        data = response.json()
+        matches = response.json().get("matches", [])
 
-        return data.get("matches", [])
+        TEAM_FORM_CACHE[team_id] = matches
+
+        return matches
 
     except Exception as e:
 
-        print(f"Error fetching team {team_id}:", e)
+        print(f"Error fetching team {team_id}: {e}")
 
         return []
     
-
-def analyze_match(match):
-
-    home_id = match["homeTeam"]["id"]
-    away_id = match["awayTeam"]["id"]
-
-    home_matches = fetch_team_recent_matches(home_id)
-    away_matches = fetch_team_recent_matches(away_id)
-
-    def calculate_strength(team_id, matches):
-
-        points = 0
-        goals_scored = 0
-        goals_conceded = 0
-
-        for m in matches:
-
-            home = m["homeTeam"]["id"] == team_id
-
-            home_goals = m["score"]["fullTime"]["home"] or 0
-            away_goals = m["score"]["fullTime"]["away"] or 0
-
-            if home:
-
-                goals_scored += home_goals
-                goals_conceded += away_goals
-
-                if home_goals > away_goals:
-                    points += 3
-                elif home_goals == away_goals:
-                    points += 1
-
-            else:
-
-                goals_scored += away_goals
-                goals_conceded += home_goals
-
-                if away_goals > home_goals:
-                    points += 3
-                elif away_goals == home_goals:
-                    points += 1
-
-        strength = (
-            points * 10
-            + goals_scored * 2
-            - goals_conceded
-        )
-
-        return strength
-
-    home_strength = calculate_strength(home_id, home_matches)
-    away_strength = calculate_strength(away_id, away_matches)
-
-    difference = home_strength - away_strength
-
-    if difference >= 12:
-        return "Home Win", 88, 1.65
-
-    elif difference <= -12:
-        return "Away Win", 88, 1.70
-
-    elif abs(difference) <= 4:
-        return "BTTS", 78, 1.80
-
-    else:
-        return "Over 1.5 Goals", 82, 1.45
-    
-
-def analyze_match_premium(match):
-
-    home_id = match["homeTeam"]["id"]
-    away_id = match["awayTeam"]["id"]
-
-    home_matches = fetch_team_recent_matches(home_id)
-    away_matches = fetch_team_recent_matches(away_id)
-
-    def stats(team_id, matches):
-
-        wins = 0
-        goals_for = 0
-        goals_against = 0
-        clean_sheets = 0
-        btts = 0
-
-        for m in matches:
-
-            home = m["homeTeam"]["id"] == team_id
-
-            hg = m["score"]["fullTime"]["home"] or 0
-            ag = m["score"]["fullTime"]["away"] or 0
-
-            if home:
-
-                gf = hg
-                ga = ag
-
-            else:
-
-                gf = ag
-                ga = hg
-
-            goals_for += gf
-            goals_against += ga
-
-            if gf > ga:
-                wins += 1
-
-            if ga == 0:
-                clean_sheets += 1
-
-            if gf > 0 and ga > 0:
-                btts += 1
-
-        games = max(len(matches), 1)
-
-        return {
-
-            "wins": wins,
-
-            "gf_avg": goals_for / games,
-
-            "ga_avg": goals_against / games,
-
-            "clean": clean_sheets,
-
-            "btts": btts
-
-        }
-
-    home = stats(home_id, home_matches)
-    away = stats(away_id, away_matches)
-
-    home_score = 0
-    away_score = 0
-
-    # Recent wins
-    home_score += home["wins"] * 4
-    away_score += away["wins"] * 4
-
-    # Attack strength
-    home_score += home["gf_avg"] * 6
-    away_score += away["gf_avg"] * 6
-
-    # Defensive strength
-    home_score -= home["ga_avg"] * 4
-    away_score -= away["ga_avg"] * 4
-
-    # Clean sheets
-    home_score += home["clean"] * 2
-    away_score += away["clean"] * 2
-
-    # Home advantage
-    home_score += 5
-
-    difference = home_score - away_score
-
-    if difference >= 10:
-
-        confidence = min(96, int(82 + abs(difference) / 3))
-        return "Home Win", confidence, 1.65
-
-    elif difference <= -10:
-
-        confidence = min(96, int(82 + abs(difference) / 3))
-        return "Away Win", confidence, 1.75
-
-    elif home["btts"] >= 3 and away["btts"] >= 3:
-
-        return "BTTS", 84, 1.90
-
-    elif (home["gf_avg"] + away["gf_avg"]) >= 2.8:
-
-        return "Over 2.5 Goals", 86, 1.95
-
-    else:
-
-        return "Over 1.5 Goals", 80, 1.45
-
-
-def analyze_match_vip(match):
-
-    return analyze_match_premium(match)
-
 
 def ai_model(plan="premium"):
     """
@@ -349,10 +179,19 @@ def ai_model(plan="premium"):
 
     for match in matches:
 
+        if match["status"] != "SCHEDULED":
+            continue
+
         fixture_id = match["id"]
 
         home = match["homeTeam"]["name"]
         away = match["awayTeam"]["name"]
+
+        home_id = match["homeTeam"]["id"]
+        away_id = match["awayTeam"]["id"]
+
+        home_matches = fetch_team_recent_matches(home_id)
+        away_matches = fetch_team_recent_matches(away_id)
 
         league = match["competition"]["name"]
 
@@ -366,14 +205,48 @@ def ai_model(plan="premium"):
 
         fixture_date = local_time.strftime("%A, %d %b")
 
-        if plan == "vip":
-            prediction, confidence, odds = analyze_match_vip(match)
+        result = predict_match(
+            match,
+            home_id,
+            away_id,
+            home_matches,
+            away_matches
+        )
 
-        elif plan == "premium":
-            prediction, confidence, odds = analyze_match_premium(match)
+        prediction = result["prediction"]
+        confidence = result["confidence"]
+        odds = result["odds"]
 
-        else:
-            prediction, confidence, odds = analyze_match(match)
+        home_rating = result["home_rating"]
+        away_rating = result["away_rating"]
+
+        grade = result["grade"]
+        value = result["value"]
+        edge = result["edge"]
+
+        reasoning = "\n".join(result["reasoning"])
+
+        # ===========================
+        # ADVANCED AI METRICS
+        # ===========================
+
+        home_form = result["home_form"]
+        away_form = result["away_form"]
+
+        home_attack = result["home_attack"]
+        away_attack = result["away_attack"]
+
+        home_defense = result["home_defense"]
+        away_defense = result["away_defense"]
+
+        home_momentum = result["home_momentum"]
+        away_momentum = result["away_momentum"]
+
+        home_xg = result["home_xg"]
+        away_xg = result["away_xg"]
+
+        home_xga = result["home_xga"]
+        away_xga = result["away_xga"]
 
         predictions.append({
 
@@ -395,7 +268,37 @@ def ai_model(plan="premium"):
 
             "status": "Pending",
 
-            "actual_score": None
+            "actual_score": None,
+
+            "grade": grade,
+
+            "value": value,
+
+            "edge": edge,
+
+            "reasoning": reasoning,
+
+            "home_rating": home_rating,
+
+            "away_rating": away_rating,
+
+            "home_form": home_form,
+            "away_form": away_form,
+
+            "home_attack": home_attack,
+            "away_attack": away_attack,
+
+            "home_defense": home_defense,
+            "away_defense": away_defense,
+
+            "home_momentum": home_momentum,
+            "away_momentum": away_momentum,
+
+            "home_xg": home_xg,
+            "away_xg": away_xg,
+
+            "home_xga": home_xga,
+            "away_xga": away_xga,
         })
 
     # Confidence threshold
@@ -439,10 +342,19 @@ def ai_model(plan="premium"):
 
             for match in matches:
 
+                if match["status"] != "SCHEDULED":
+                     continue
+
                 fixture_id = match["id"]
 
                 home = match["homeTeam"]["name"]
                 away = match["awayTeam"]["name"]
+
+                home_id = match["homeTeam"]["id"]
+                away_id = match["awayTeam"]["id"]
+
+                home_matches = fetch_team_recent_matches(home_id)
+                away_matches = fetch_team_recent_matches(away_id)
 
                 league = match["competition"]["name"]
 
@@ -456,14 +368,48 @@ def ai_model(plan="premium"):
 
                 fixture_date = local_time.strftime("%A, %d %b")
 
-                if plan == "vip":
-                    prediction, confidence, odds = analyze_match_vip(match)
+                result = predict_match(
+                    match,
+                    home_id,
+                    away_id,
+                    home_matches,
+                    away_matches
+                )
 
-                elif plan == "premium":
-                    prediction, confidence, odds = analyze_match_premium(match)
+                prediction = result["prediction"]
+                confidence = result["confidence"]
+                odds = result["odds"]
 
-                else:
-                    prediction, confidence, odds = analyze_match(match)
+                home_rating = result["home_rating"]
+                away_rating = result["away_rating"]
+
+                grade = result["grade"]
+                value = result["value"]
+                edge = result["edge"]
+
+                reasoning = "\n".join(result["reasoning"])
+
+                # ===========================
+                # ADVANCED AI METRICS
+                # ===========================
+
+                home_form = result["home_form"]
+                away_form = result["away_form"]
+
+                home_attack = result["home_attack"]
+                away_attack = result["away_attack"]
+
+                home_defense = result["home_defense"]
+                away_defense = result["away_defense"]
+
+                home_momentum = result["home_momentum"]
+                away_momentum = result["away_momentum"]
+
+                home_xg = result["home_xg"]
+                away_xg = result["away_xg"]
+
+                home_xga = result["home_xga"]
+                away_xga = result["away_xga"]
 
                 if confidence >= minimum_confidence:
 
@@ -478,7 +424,32 @@ def ai_model(plan="premium"):
                         "kickoff": kickoff,
                         "fixture_date": fixture_date,
                         "status": "Pending",
-                        "actual_score": None
+                        "actual_score": None,
+
+                        "grade": grade,
+                        "value": value,
+                        "edge": edge,
+                        "reasoning": reasoning,
+                        "home_rating": home_rating,
+                        "away_rating": away_rating,
+
+                        "home_form": home_form,
+                        "away_form": away_form,
+
+                        "home_attack": home_attack,
+                        "away_attack": away_attack,
+
+                        "home_defense": home_defense,
+                        "away_defense": away_defense,
+
+                        "home_momentum": home_momentum,
+                        "away_momentum": away_momentum,
+
+                        "home_xg": home_xg,
+                        "away_xg": away_xg,
+
+                        "home_xga": home_xga,
+                        "away_xga": away_xga,
 
                    })
 
@@ -568,8 +539,15 @@ def check_results():
 
             status = fixture["status"]
 
+            if status == "POSTPONED":
+                print(f"⏸ {saved_match} has been postponed.")
+                continue
+
+            if status in ["SCHEDULED", "TIMED", "IN_PLAY", "PAUSED"]:
+                print(f"⏳ {saved_match} still not finished.")
+                continue
+
             if status != "FINISHED":
-                print(f"{saved_match} still not finished.")
                 continue
 
             home_goals = fixture["score"]["fullTime"]["home"]
@@ -602,9 +580,23 @@ def check_results():
 
             print(f"✅ {saved_match} -> {result}")
 
+        except requests.exceptions.HTTPError as e:
+
+            if e.response is not None and e.response.status_code == 429:
+
+               print("⚠ Rate limit reached. Waiting 60 seconds...")
+
+               time.sleep(60)
+
+               continue
+
+            print(f"Error checking {saved_match}: {e}")
+
         except Exception as e:
 
             print(f"Error checking {saved_match}: {e}")
+
+        time.sleep(1)   
 
 
 if __name__ == "__main__":
@@ -613,4 +605,83 @@ if __name__ == "__main__":
     for prediction in predictions:
         print(prediction)
 
-    check_results()      
+    check_results()  
+
+
+from datetime import datetime, timedelta
+
+
+def get_finished_matches():
+    """
+    Returns all finished matches from the last 7 days.
+    Compatible with Football-Data.org.
+    """
+
+    today = datetime.utcnow().date()
+
+    all_matches = []
+
+    for i in range(7):
+
+        day = today - timedelta(days=i)
+
+        matches = fetch_fixtures_for_date(day.isoformat())
+
+        for match in matches:
+
+            if match["status"] == "FINISHED":
+
+                all_matches.append({
+
+                    "fixture_id": match["id"],
+
+                    "home_team": match["homeTeam"]["name"],
+
+                    "away_team": match["awayTeam"]["name"],
+
+                    "home_goals": match["score"]["fullTime"]["home"],
+
+                    "away_goals": match["score"]["fullTime"]["away"],
+
+                    "winner": match["score"]["winner"]
+
+                })
+
+    return all_matches  
+
+
+def get_fixture_by_id(fixture_id):
+    """
+    Fetch one fixture directly from Football-Data.org.
+    """
+
+    url = f"https://api.football-data.org/v4/matches/{fixture_id}"
+
+    headers = {
+        "X-Auth-Token": config.FOOTBALL_DATA_KEY
+    }
+
+    try:
+
+        response = requests.get(
+            url,
+            headers=headers,
+            timeout=20
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        print("\n====================")
+        print(f"Fixture ID: {fixture_id}")
+        print(data)
+        print("====================\n")
+
+        return data
+
+    except Exception as e:
+
+        print(f"Fixture {fixture_id} error:", e)
+
+        return None

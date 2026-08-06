@@ -11,7 +11,7 @@ def get_connection():
 
 
 def init_db():
-    remove_duplicate_predictions()
+    
     conn = get_connection()
     cur = conn.cursor()
 
@@ -70,6 +70,96 @@ def init_db():
     cur.execute("""
     ALTER TABLE predictions
     ADD COLUMN IF NOT EXISTS tier TEXT DEFAULT 'premium'
+""")
+
+    cur.execute("""
+    ALTER TABLE predictions
+    ADD COLUMN IF NOT EXISTS grade TEXT,
+    ADD COLUMN IF NOT EXISTS value TEXT,
+    ADD COLUMN IF NOT EXISTS edge REAL,
+    ADD COLUMN IF NOT EXISTS reasoning TEXT,
+    ADD COLUMN IF NOT EXISTS home_rating REAL,
+    ADD COLUMN IF NOT EXISTS away_rating REAL;
+""")
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS prediction_memory (
+
+        id SERIAL PRIMARY KEY,
+
+        fixture_id BIGINT UNIQUE,
+
+        prediction_date TEXT,
+
+        match TEXT,
+
+        league TEXT,
+
+        prediction TEXT,
+
+        confidence INTEGER,
+
+        grade TEXT,
+
+        value TEXT,
+
+        edge REAL,
+
+        result TEXT,
+
+        actual_score TEXT,
+
+        home_rating REAL,
+        away_rating REAL,
+
+        home_form REAL,
+        away_form REAL,
+
+        home_attack REAL,
+        away_attack REAL,
+
+        home_defense REAL,
+        away_defense REAL,
+
+        home_momentum REAL,
+        away_momentum REAL,
+
+        home_xg REAL,
+        away_xg REAL,
+
+        home_xga REAL,
+        away_xga REAL,
+
+        form_weight REAL,
+
+        attack_weight REAL,
+
+        defense_weight REAL,
+
+        momentum_weight REAL,
+
+        xg_weight REAL,
+
+        xga_weight REAL,
+
+        h2h_weight REAL,
+
+        squad_weight REAL,
+
+        league_weight REAL,
+
+        motivation_weight REAL,
+
+        fatigue_weight REAL,
+
+        referee_weight REAL,
+
+        homeaway_weight REAL,
+
+        reasoning TEXT,
+        
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
 """)
     
     conn.commit()
@@ -515,8 +605,15 @@ def save_prediction(
     odds,
     league,
     kickoff,
+    grade,
+    value,
+    edge,
+    reasoning,
+    home_rating,
+    away_rating,
     tier="premium"
 ):
+
     conn = get_connection()
     cur = conn.cursor()
 
@@ -534,7 +631,33 @@ def save_prediction(
 
     print(f"fixture_id={fixture_id}, existing={existing}")
 
+    if fixture_id is None:
+        print("❌ Cannot save prediction without fixture_id.")
+        cur.close()
+        conn.close()
+        return
+
     if existing:
+
+        prediction_data = {
+
+            "prediction_date": datetime.now().strftime("%Y-%m-%d"),
+
+            "match": match,
+            "league": league,
+
+            "prediction": prediction,
+            "confidence": confidence,
+
+            "grade": grade,
+            "value": value,
+            "edge": edge,
+            "reasoning": reasoning,
+
+            "home_rating": home_rating,
+            "away_rating": away_rating
+
+        }
 
         cur.execute(
             """
@@ -547,6 +670,12 @@ def save_prediction(
                 league=%s,
                 kickoff=%s,
                 prediction_date=%s,
+                grade=%s,
+                value=%s,
+                edge=%s,
+                reasoning=%s,
+                home_rating=%s,
+                away_rating=%s,
                 tier=%s
             WHERE fixture_id=%s
             """,
@@ -558,6 +687,12 @@ def save_prediction(
                 league,
                 kickoff,
                 datetime.now().strftime("%Y-%m-%d"),
+                grade,
+                value,
+                edge,
+                reasoning,
+                home_rating,
+                away_rating,
                 tier,
                 fixture_id
             )
@@ -578,11 +713,19 @@ def save_prediction(
                 odds,
                 league,
                 kickoff,
+
+                grade,
+                value,
+                edge,
+                reasoning,
+                home_rating,
+                away_rating,
+
                 prediction_date,
                 tier
             )
             VALUES
-            (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
                 fixture_id,
@@ -592,6 +735,14 @@ def save_prediction(
                 odds,
                 league,
                 kickoff,
+
+                grade,
+                value,
+                edge,
+                reasoning,
+                home_rating,
+                away_rating,
+
                 datetime.now().strftime("%Y-%m-%d"),
                 tier
             )
@@ -630,16 +781,15 @@ def remove_duplicate_predictions():
 
 
 def get_pending_predictions():
+    """
+    Returns every pending prediction.
+    """
 
     conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT
-            id,
-            fixture_id,
-            match,
-            prediction
+        SELECT *
         FROM predictions
         WHERE status='Pending'
         AND fixture_id IS NOT NULL
@@ -734,3 +884,148 @@ def update_prediction_result(
 
     cur.close()
     conn.close()
+
+
+def save_prediction_memory(
+    fixture_id,
+    prediction_data
+):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+    """
+    INSERT INTO prediction_memory (
+        fixture_id,
+        prediction_date,
+        match,
+        league,
+        prediction,
+        confidence,
+        grade,
+        value,
+        edge,
+        reasoning,
+
+        home_rating,
+        away_rating,
+
+        home_form,
+        away_form,
+
+        home_attack,
+        away_attack,
+
+        home_defense,
+        away_defense,
+
+        home_momentum,
+        away_momentum,
+
+        home_xg,
+        away_xg,
+
+        home_xga,
+        away_xga
+    )
+    VALUES (
+        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+        %s,%s,
+        %s,%s,
+        %s,%s,
+        %s,%s,
+        %s,%s,
+        %s,%s,
+        %s,%s
+    )
+    """,
+    (
+        fixture_id,
+        prediction_data["prediction_date"],
+        prediction_data["match"],
+        prediction_data["league"],
+        prediction_data["prediction"],
+        prediction_data["confidence"],
+        prediction_data["grade"],
+        prediction_data["value"],
+        prediction_data["edge"],
+        prediction_data["reasoning"],
+
+        prediction_data["home_rating"],
+        prediction_data["away_rating"],
+
+        prediction_data["home_form"],
+        prediction_data["away_form"],
+
+        prediction_data["home_attack"],
+        prediction_data["away_attack"],
+
+        prediction_data["home_defense"],
+        prediction_data["away_defense"],
+
+        prediction_data["home_momentum"],
+        prediction_data["away_momentum"],
+
+        prediction_data["home_xg"],
+        prediction_data["away_xg"],
+
+        prediction_data["home_xga"],
+        prediction_data["away_xga"]
+    )
+)
+
+    conn.commit()
+
+    cur.close()
+    conn.close()    
+
+
+def get_prediction_history(limit=300):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+
+        SELECT *
+
+        FROM prediction_memory
+
+        ORDER BY created_at DESC
+
+        LIMIT %s
+
+    """, (limit,))
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows
+
+
+def debug_predictions():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            id,
+            fixture_id,
+            match
+        FROM predictions
+        ORDER BY id;
+    """)
+
+    rows = cur.fetchall()
+
+    print("\n====== PREDICTIONS ======")
+
+    for row in rows:
+        print(row)
+
+    cur.close()
+    conn.close()    
