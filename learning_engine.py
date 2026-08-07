@@ -1,5 +1,7 @@
 from database import (
-    get_connection
+    get_connection,
+    record_engine_win,
+    record_engine_loss
 )
 
 from engine_tracker import (
@@ -97,9 +99,11 @@ def learn_from_finished_match(
 
     if correct:
         increase_weight("form")
+        record_engine_win("form")
 
     else:
         decrease_weight("form")
+        record_engine_loss("form")
 
     # ATTACK ENGINE
 
@@ -112,6 +116,7 @@ def learn_from_finished_match(
 
     if correct:
         increase_weight("attack")
+        record_engine_win("attack")
 
     else:
         decrease_weight("attack")
@@ -127,9 +132,11 @@ def learn_from_finished_match(
 
     if correct:
         increase_weight("defense")
+        record_engine_win("defense")
 
     else:
         decrease_weight("defense")
+        record_engine_loss("defense")
 
     # MOMENTUM
 
@@ -142,9 +149,11 @@ def learn_from_finished_match(
 
     if correct:
         increase_weight("momentum")
+        record_engine_win("momentum")
 
     else:
         decrease_weight("momentum")
+        record_engine_loss("momentum")
 
     # xG
 
@@ -157,9 +166,11 @@ def learn_from_finished_match(
 
     if correct:
         increase_weight("xg")
+        record_engine_win("xg")
 
     else:
         decrease_weight("xg")
+        record_engine_loss("xg")
 
     # xGA
 
@@ -172,9 +183,11 @@ def learn_from_finished_match(
 
     if correct:
         increase_weight("xga")
+        record_engine_win("xga")
 
     else:
         decrease_weight("xga")
+        record_engine_loss("xga")
 
     print("AI learned from", fixture_id)
 
@@ -200,4 +213,13 @@ def process_finished_prediction(fixture_id, prediction, result):
         fixture_id,
         prediction,
         result
+    )
+
+
+if __name__ == "__main__":
+
+    learn_from_finished_match(
+        fixture_id=554935,
+        prediction="Over 1.5 Goals",
+        result="WIN"
     )

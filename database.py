@@ -161,6 +161,20 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS engine_tracker (
+
+        engine_name TEXT PRIMARY KEY,
+
+        wins INTEGER DEFAULT 0,
+
+        losses INTEGER DEFAULT 0,
+
+        accuracy REAL DEFAULT 0
+
+    )
+""")
     
     conn.commit()
     cur.close()
@@ -978,7 +992,63 @@ def save_prediction_memory(
     conn.commit()
 
     cur.close()
-    conn.close()    
+    conn.close() 
+
+
+def ensure_engine_exists(engine):
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO engine_tracker(engine_name)
+        VALUES(%s)
+        ON CONFLICT(engine_name)
+        DO NOTHING
+    """, (engine,))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+
+def record_engine_win(engine):
+
+    ensure_engine_exists(engine)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE engine_tracker
+        SET wins = wins + 1
+        WHERE engine_name=%s
+    """, (engine,))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+
+def record_engine_loss(engine):
+
+    ensure_engine_exists(engine)
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE engine_tracker
+        SET losses = losses + 1
+        WHERE engine_name=%s
+    """, (engine,))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()               
 
 
 def get_prediction_history(limit=300):
@@ -1029,3 +1099,48 @@ def debug_predictions():
 
     cur.close()
     conn.close()    
+
+
+def get_engine_statistics():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+
+        SELECT
+
+            engine_name,
+            wins,
+            losses,
+
+            ROUND(
+
+                CASE
+
+                    WHEN wins + losses = 0
+
+                    THEN 0
+
+                    ELSE
+
+                        (wins * 100.0) /
+                        (wins + losses)
+
+                END,
+
+            2) AS accuracy
+
+        FROM engine_tracker
+
+        ORDER BY accuracy DESC,
+                 wins DESC
+
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows    

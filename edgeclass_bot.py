@@ -14,6 +14,12 @@ from config import (
     VIP_PRICE,
 )
 
+from permissions import (
+    is_owner,
+    is_super_admin,
+    is_premium_moderator
+)
+
 from database import (
     add_user,
     get_referrals,
@@ -50,20 +56,43 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         """
-Welcome to EdgeClass ⚽
+🏆 Welcome to EdgeClass AI
 
-Commands:
-/edge_today
-/predict
-/accumulator
-/pay
-/upgrade_plus
-/referral
-/stats
-/myplan
-/help
+The intelligent football prediction platform powered by advanced AI analysis.
+
+🔥 What you can do:
+
+⚽ /edge_today
+Today's free AI prediction.
+
+🤖 /predict
+Generate premium AI match predictions.
+
+🎯 /accumulator
+Receive a smart accumulator ticket.
+
+💎 /pay
+Upgrade to Premium.
+
+👑 /upgrade_plus
+Unlock VIP predictions.
+
+👥 /referral
+Invite friends and earn rewards.
+
+📊 /stats
+View your referral progress.
+
+📅 /myplan
+Check your subscription.
+
+📚 /history
+View previous AI predictions.
+
+❓ /help
+Need assistance?
 """
-    )
+)
 
 
 async def edge_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -586,6 +615,85 @@ async def stats_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
 
+async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    user_id = update.effective_user.id
+
+    # ---------------- OWNER ----------------
+
+    if is_owner(user_id):
+
+        text = (
+            "👑 <b>EDGECLASS OWNER PANEL</b>\n\n"
+
+            "👥 Users\n"
+            "💎 Premium Manager\n"
+            "🔥 VIP Manager\n"
+            "💳 Payments\n"
+            "🧠 AI Center\n"
+            "📊 Analytics\n"
+            "📢 Broadcast\n"
+            "⚙ System Settings\n"
+        )
+
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML"
+        )
+
+        return
+
+    # ---------------- SUPER ADMIN ----------------
+
+    if is_super_admin(user_id):
+
+        text = (
+            "🛡 <b>EDGECLASS ADMIN PANEL</b>\n\n"
+
+            "👥 Users\n"
+            "💎 Premium Manager\n"
+            "🔥 VIP Manager\n"
+            "💳 Payments\n"
+            "🧠 AI Center\n"
+            "📊 Analytics\n"
+            "📢 Broadcast\n"
+        )
+
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML"
+        )
+
+        return
+
+    # ---------------- PREMIUM MODERATOR ----------------
+
+    if is_premium_moderator(user_id):
+
+        text = (
+            "👥 <b>PREMIUM MANAGER PANEL</b>\n\n"
+
+            "💎 Premium Users\n"
+            "➕ Upgrade Premium\n"
+            "📅 Extend Premium\n"
+            "📢 Broadcast Premium\n"
+            "📨 Premium Support\n"
+        )
+
+        await update.message.reply_text(
+            text,
+            parse_mode="HTML"
+        )
+
+        return
+
+    # ---------------- NOT AUTHORIZED ----------------
+
+    await update.message.reply_text(
+        "❌ You are not authorized to access the Admin Panel."
+    )    
+
+
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
@@ -627,6 +735,7 @@ application.add_handler(CommandHandler("admin_expire", expireme))
 application.add_handler(CommandHandler("history", history))
 application.add_handler(CommandHandler("help", help_cmd))
 application.add_handler(CommandHandler("stats_ai", stats_ai))
+application.add_handler(CommandHandler("admin", admin))
 
 async def process_telegram_update(update_dict):
     await application.initialize()

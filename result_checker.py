@@ -4,6 +4,7 @@ from database import get_pending_predictions
 
 from database import update_prediction_result
 from database import save_prediction_memory
+from learning_engine import learn_from_finished_match
 
 def check_finished_predictions():
 
@@ -139,6 +140,12 @@ def check_finished_predictions():
         )
 
         print("Prediction stored in AI memory.")
+
+        learn_from_finished_match(
+            fixture_id,
+            prediction_text,
+            prediction_result
+        )
 
         print("Prediction database updated.")
 
