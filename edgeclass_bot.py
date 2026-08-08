@@ -2,6 +2,7 @@ import random
 
 from analytics import get_prediction_stats
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import CallbackQueryHandler
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -31,6 +32,12 @@ from database import (
     save_prediction,
     get_prediction_history,
     remove_duplicate_predictions,
+)
+
+from admin_panel import (
+    owner_panel,
+    super_admin_panel,
+    premium_moderator_panel
 )
 
 from payments import create_payment
@@ -615,103 +622,916 @@ async def stats_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(message)
 
 
+def owner_panel():
+    keyboard = [
+        [
+            InlineKeyboardButton("👥 Users", callback_data="admin_users"),
+            InlineKeyboardButton("💎 Premium Manager", callback_data="admin_premium"),
+        ],
+        [
+            InlineKeyboardButton("🔥 VIP Manager", callback_data="admin_vip"),
+            InlineKeyboardButton("💳 Payments", callback_data="admin_payments"),
+        ],
+        [
+            InlineKeyboardButton("🧠 AI Center", callback_data="admin_ai"),
+            InlineKeyboardButton("📊 Analytics", callback_data="admin_analytics"),
+        ],
+        [
+            InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast"),
+            InlineKeyboardButton("⚙️ Settings", callback_data="admin_settings"),
+        ],
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def super_admin_panel():
+    keyboard = [
+        [
+            InlineKeyboardButton("👥 Users", callback_data="admin_users"),
+            InlineKeyboardButton("💎 Premium Manager", callback_data="admin_premium"),
+        ],
+        [
+            InlineKeyboardButton("🔥 VIP Manager", callback_data="admin_vip"),
+            InlineKeyboardButton("💳 Payments", callback_data="admin_payments"),
+        ],
+        [
+            InlineKeyboardButton("🧠 AI Center", callback_data="admin_ai"),
+            InlineKeyboardButton("📊 Analytics", callback_data="admin_analytics"),
+        ],
+        [
+            InlineKeyboardButton("📢 Broadcast", callback_data="admin_broadcast"),
+        ],
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def premium_moderator_panel():
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "💎 Premium Users",
+                callback_data="premium_users"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "➕ Upgrade Premium",
+                callback_data="premium_upgrade"
+            ),
+            InlineKeyboardButton(
+                "📅 Extend Premium",
+                callback_data="premium_extend"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                "📢 Broadcast Premium",
+                callback_data="premium_broadcast"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "📨 Premium Support",
+                callback_data="premium_support"
+            )
+        ],
+    ]
+
+    return InlineKeyboardMarkup(keyboard)
+
+
 async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    await update.message.reply_text(
+        "🚨 NEW ADMIN CODE IS RUNNING 🚨"
+    )
+
+    return
 
     user_id = update.effective_user.id
 
-    # ---------------- OWNER ----------------
+    # =====================================================
+    # OWNER PANEL
+    # =====================================================
 
     if is_owner(user_id):
 
-        text = (
-            "👑 <b>EDGECLASS OWNER PANEL</b>\n\n"
-
-            "👥 Users\n"
-            "💎 Premium Manager\n"
-            "🔥 VIP Manager\n"
-            "💳 Payments\n"
-            "🧠 AI Center\n"
-            "📊 Analytics\n"
-            "📢 Broadcast\n"
-            "⚙ System Settings\n"
-        )
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "👥 Users",
+                    callback_data="admin_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💎 Premium Manager",
+                    callback_data="admin_premium"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 VIP Manager",
+                    callback_data="admin_vip"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💳 Payments",
+                    callback_data="admin_payments"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🧠 AI Center",
+                    callback_data="admin_ai"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📊 Analytics",
+                    callback_data="admin_analytics"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 Broadcast",
+                    callback_data="admin_broadcast"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⚙ System Settings",
+                    callback_data="admin_settings"
+                )
+            ],
+        ]
 
         await update.message.reply_text(
-            text,
-            parse_mode="HTML"
+            "👑 <b>EDGECLASS OWNER PANEL</b>\n\n"
+            "Welcome to the EdgeClass control center.\n\n"
+            "Select a management area below:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         return
 
-    # ---------------- SUPER ADMIN ----------------
+    # =====================================================
+    # SUPER ADMIN PANEL
+    # =====================================================
 
     if is_super_admin(user_id):
 
-        text = (
-            "🛡 <b>EDGECLASS ADMIN PANEL</b>\n\n"
-
-            "👥 Users\n"
-            "💎 Premium Manager\n"
-            "🔥 VIP Manager\n"
-            "💳 Payments\n"
-            "🧠 AI Center\n"
-            "📊 Analytics\n"
-            "📢 Broadcast\n"
-        )
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "👥 Users",
+                    callback_data="admin_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💎 Premium Manager",
+                    callback_data="admin_premium"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 VIP Manager",
+                    callback_data="admin_vip"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💳 Payments",
+                    callback_data="admin_payments"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🧠 AI Center",
+                    callback_data="admin_ai"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📊 Analytics",
+                    callback_data="admin_analytics"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 Broadcast",
+                    callback_data="admin_broadcast"
+                )
+            ],
+        ]
 
         await update.message.reply_text(
-            text,
-            parse_mode="HTML"
+            "🛡 <b>EDGECLASS ADMIN PANEL</b>\n\n"
+            "Select a management area below:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         return
 
-    # ---------------- PREMIUM MODERATOR ----------------
+    # =====================================================
+    # PREMIUM MODERATOR
+    # =====================================================
 
     if is_premium_moderator(user_id):
 
-        text = (
-            "👥 <b>PREMIUM MANAGER PANEL</b>\n\n"
-
-            "💎 Premium Users\n"
-            "➕ Upgrade Premium\n"
-            "📅 Extend Premium\n"
-            "📢 Broadcast Premium\n"
-            "📨 Premium Support\n"
-        )
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "💎 Premium Users",
+                    callback_data="premium_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "➕ Upgrade Premium",
+                    callback_data="premium_upgrade"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📅 Extend Premium",
+                    callback_data="premium_extend"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 Broadcast Premium",
+                    callback_data="premium_broadcast"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📨 Premium Support",
+                    callback_data="premium_support"
+                )
+            ],
+        ]
 
         await update.message.reply_text(
-            text,
-            parse_mode="HTML"
+            "💎 <b>PREMIUM MANAGER PANEL</b>\n\n"
+            "You have access to Premium management only.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         return
 
-    # ---------------- NOT AUTHORIZED ----------------
+    # =====================================================
+    # UNAUTHORIZED
+    # =====================================================
 
     await update.message.reply_text(
         "❌ You are not authorized to access the Admin Panel."
-    )    
+    )
+
+
+async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    query = update.callback_query
+
+    await query.answer()
+
+    user_id = query.from_user.id
+    action = query.data
+
+    # =====================================================
+    # SECURITY CHECK
+    # =====================================================
+
+    if not (
+        is_owner(user_id)
+        or is_super_admin(user_id)
+        or is_premium_moderator(user_id)
+    ):
+        await query.edit_message_text(
+            "❌ You are not authorized to use this panel."
+        )
+        return
+
+    # =====================================================
+    # OWNER / ADMIN ACTIONS
+    # =====================================================
+
+    if action == "admin_users":
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "🔎 Find User",
+                    callback_data="users_find"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📋 List Users",
+                    callback_data="users_list"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💎 Premium Users",
+                    callback_data="users_premium"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 VIP Users",
+                    callback_data="users_vip"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "👥 <b>USER MANAGEMENT</b>\n\n"
+            "Choose an option:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # PREMIUM MANAGER
+    # =====================================================
+
+    if action == "admin_premium":
+
+        # IMPORTANT:
+        # Owner and Super Admin can access this.
+        # Premium Moderator can also access Premium management.
+
+        if not (
+            is_owner(user_id)
+            or is_super_admin(user_id)
+            or is_premium_moderator(user_id)
+        ):
+            await query.edit_message_text(
+                "❌ Premium Manager access denied."
+            )
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "👥 Premium Users",
+                    callback_data="premium_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "➕ Add Premium",
+                    callback_data="premium_upgrade"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📅 Extend Premium",
+                    callback_data="premium_extend"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 Premium Broadcast",
+                    callback_data="premium_broadcast"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "💎 <b>PREMIUM MANAGER</b>\n\n"
+            "Manage EdgeClass Premium members.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # VIP MANAGER
+    # =====================================================
+
+    if action == "admin_vip":
+
+        # VIP is restricted to owner/super admin.
+        # Your brother's Premium Moderator role cannot enter here.
+
+        if not (
+            is_owner(user_id)
+            or is_super_admin(user_id)
+        ):
+            await query.edit_message_text(
+                "❌ VIP Manager access denied."
+            )
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "👑 VIP Users",
+                    callback_data="vip_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "➕ Add VIP",
+                    callback_data="vip_upgrade"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📅 Extend VIP",
+                    callback_data="vip_extend"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 VIP Broadcast",
+                    callback_data="vip_broadcast"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "🔥 <b>VIP MANAGER</b>\n\n"
+            "Manage EdgeClass VIP members.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # PAYMENTS
+    # =====================================================
+
+    if action == "admin_payments":
+
+        if not (
+            is_owner(user_id)
+            or is_super_admin(user_id)
+        ):
+            await query.edit_message_text(
+                "❌ Payments access denied."
+            )
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "💳 Payment History",
+                    callback_data="payments_history"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📊 Payment Statistics",
+                    callback_data="payments_stats"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "💳 <b>PAYMENTS CENTER</b>\n\n"
+            "Payment management tools.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # AI CENTER
+    # =====================================================
+
+    if action == "admin_ai":
+
+        if not (
+            is_owner(user_id)
+            or is_super_admin(user_id)
+        ):
+            await query.edit_message_text(
+                "❌ AI Center access denied."
+            )
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "🧠 Engine Statistics",
+                    callback_data="ai_engine_stats"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⚖ Dynamic Weights",
+                    callback_data="ai_weights"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📚 Learning Memory",
+                    callback_data="ai_learning"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "🧠 <b>EDGECLASS AI CENTER</b>\n\n"
+            "Monitor and manage the prediction intelligence system.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # ANALYTICS
+    # =====================================================
+
+    if action == "admin_analytics":
+
+        if not (
+            is_owner(user_id)
+            or is_super_admin(user_id)
+        ):
+            await query.edit_message_text(
+                "❌ Analytics access denied."
+            )
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "📊 Engine Performance",
+                    callback_data="analytics_engines"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🎯 Prediction Accuracy",
+                    callback_data="analytics_accuracy"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "👥 User Statistics",
+                    callback_data="analytics_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "📊 <b>EDGECLASS ANALYTICS</b>\n\n"
+            "System performance and business analytics.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # BROADCAST
+    # =====================================================
+
+    if action == "admin_broadcast":
+
+        if not (
+            is_owner(user_id)
+            or is_super_admin(user_id)
+        ):
+            await query.edit_message_text(
+                "❌ Broadcast access denied."
+            )
+            return
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "📢 Broadcast Everyone",
+                    callback_data="broadcast_all"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💎 Broadcast Premium",
+                    callback_data="broadcast_premium"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 Broadcast VIP",
+                    callback_data="broadcast_vip"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "⬅️ Back",
+                    callback_data="admin_home"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "📢 <b>BROADCAST CENTER</b>\n\n"
+            "Choose your audience.",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+
+    # =====================================================
+    # BACK TO ADMIN HOME
+    # =====================================================
+
+    if action == "admin_home":
+
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "👥 Users",
+                    callback_data="admin_users"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💎 Premium Manager",
+                    callback_data="admin_premium"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🔥 VIP Manager",
+                    callback_data="admin_vip"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "💳 Payments",
+                    callback_data="admin_payments"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "🧠 AI Center",
+                    callback_data="admin_ai"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📊 Analytics",
+                    callback_data="admin_analytics"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    "📢 Broadcast",
+                    callback_data="admin_broadcast"
+                )
+            ],
+        ]
+
+        await query.edit_message_text(
+            "🛡 <b>EDGECLASS ADMIN PANEL</b>\n\n"
+            "Select a management area below:",
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+        return
+    
+
+async def show_admin_users(query):
+
+    conn = get_connection()
+
+    try:
+
+        with conn.cursor() as cur:
+
+            cur.execute(
+                "SELECT COUNT(*) FROM users"
+            )
+
+            total_users = cur.fetchone()[0]
+
+            cur.execute(
+                "SELECT * FROM users LIMIT 10"
+            )
+
+            rows = cur.fetchall()
+
+            columns = [
+                column.name
+                for column in cur.description
+            ]
+
+    finally:
+
+        conn.close()
+
+    text = (
+        "👥 <b>EDGECLASS USERS</b>\n\n"
+        f"Total users: <b>{total_users}</b>\n\n"
+    )
+
+    if not rows:
+
+        text += "No users found."
+
+    else:
+
+        text += "<b>Recent users:</b>\n\n"
+
+        for row in rows:
+
+            data = dict(zip(columns, row))
+
+            user_id = data.get("user_id", "Unknown")
+
+            text += f"👤 <code>{user_id}</code>\n"
+
+            # Show subscription if the database has it
+            plan = data.get("plan")
+
+            if plan:
+                text += f"   Plan: {plan}\n"
+
+            text += "\n"
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "⬅️ Back",
+                callback_data="admin_back"
+            )
+        ]
+    ]
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+
+async def show_premium_users(query):
+
+    conn = get_connection()
+
+    try:
+
+        with conn.cursor() as cur:
+
+            cur.execute(
+                """
+                SELECT *
+                FROM users
+                WHERE plan = 'premium'
+                LIMIT 20
+                """
+            )
+
+            rows = cur.fetchall()
+
+            columns = [
+                column.name
+                for column in cur.description
+            ]
+
+    finally:
+
+        conn.close()
+
+    text = (
+        "💎 <b>PREMIUM USERS</b>\n\n"
+        f"Premium users found: <b>{len(rows)}</b>\n\n"
+    )
+
+    if not rows:
+
+        text += "No Premium users found."
+
+    else:
+
+        for row in rows:
+
+            data = dict(zip(columns, row))
+
+            user_id = data.get("user_id", "Unknown")
+
+            text += f"👤 <code>{user_id}</code>\n"
+
+            username = data.get("username")
+
+            if username:
+                text += f"   @{username}\n"
+
+            text += "\n"
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "⬅️ Back",
+                callback_data="admin_back"
+            )
+        ]
+    ]
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         """
-EdgeClass Commands
+🏆 EdgeClass AI
 
-/start
-/edge_today
-/predict
-/accumulator
-/pay
-/upgrade_plus
-/referral
-/stats
-/myplan
-/help
+⚽ /edge_today
+Today's free AI prediction.
+
+🤖 /predict
+Generate premium AI match predictions.
+
+🎯 /accumulator
+Receive a smart accumulator ticket.
+
+💎 /pay
+Upgrade to Premium.
+
+👑 /upgrade_plus
+Unlock VIP predictions.
+
+👥 /referral
+Invite friends and earn rewards.
+
+📊 /stats
+View your referral progress.
+
+📅 /myplan
+Check your subscription plan.
+
+📚 /history
+View previous AI predictions.
+
+🛡 /admin
+Open the Admin Dashboard.
+
+❓ /help
+Show available commands.
 """
-    )
+    )    
 
 
 # ================= DATABASE =================
@@ -736,6 +1556,10 @@ application.add_handler(CommandHandler("history", history))
 application.add_handler(CommandHandler("help", help_cmd))
 application.add_handler(CommandHandler("stats_ai", stats_ai))
 application.add_handler(CommandHandler("admin", admin))
+
+application.add_handler(
+    CallbackQueryHandler(admin_callback)
+)
 
 async def process_telegram_update(update_dict):
     await application.initialize()
