@@ -35,9 +35,8 @@ from database import (
 )
 
 from admin_panel import (
-    owner_panel,
-    super_admin_panel,
-    premium_moderator_panel
+    admin,
+    admin_callback,
 )
 
 from payments import create_payment
@@ -1558,7 +1557,7 @@ application.add_handler(CommandHandler("stats_ai", stats_ai))
 application.add_handler(CommandHandler("admin", admin))
 
 application.add_handler(
-    CallbackQueryHandler(admin_callback)
+    CallbackQueryHandler(admin_callback, pattern=r"^admin:")
 )
 
 async def process_telegram_update(update_dict):
