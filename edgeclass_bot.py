@@ -1,4 +1,6 @@
 import random
+import asyncio
+import threading
 
 from analytics import get_prediction_stats
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -1347,6 +1349,7 @@ init_db()
 
 application = ApplicationBuilder().token(BOT_TOKEN).build()
 
+
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("edge_today", edge_today))
 application.add_handler(CommandHandler("predict", predict))
@@ -1362,15 +1365,58 @@ application.add_handler(CommandHandler("help", help_cmd))
 application.add_handler(CommandHandler("stats_ai", stats_ai))
 application.add_handler(CommandHandler("admin", admin))
 
+
 application.add_handler(
     CallbackQueryHandler(admin_callback, pattern=r"^admin:")
 )
 
-async def process_telegram_update(update_dict):
-    await application.initialize()
 
-    try:
-        update = Update.de_json(update_dict, application.bot)
-        await application.process_update(update)
-    finally:
-        await application.shutdown()
+# ============================================================
+# PERSISTENT TELEGRAM EVENT LOOP
+# ============================================================
+
+telegram_loop = asyncio.new_event_loop()
+
+
+def run_telegram_loop():
+    asyncio.set_event_loop(telegram_loop)
+
+    # Initialize the Telegram application ONCE.
+    telegram_loop.run_until_complete(
+        application.initialize()
+    )
+
+    print("🔥 TELEGRAM APPLICATION INITIALIZED")
+
+    # Keep the event loop alive for the lifetime of the worker.
+    telegram_loop.run_forever()
+
+
+telegram_thread = threading.Thread(
+    target=run_telegram_loop,
+    name="telegram-event-loop",
+    daemon=True,
+)
+
+telegram_thread.start()
+
+
+# ============================================================
+# PROCESS TELEGRAM WEBHOOK UPDATE
+# ============================================================
+
+async def process_telegram_update(update_dict):
+    update = Update.de_json(
+        update_dict,
+        application.bot
+    )
+
+    future = asyncio.run_coroutine_threadsafe(
+        application.process_update(update),
+        telegram_loop,
+    )
+
+    # Wait for Telegram application processing to finish.
+    await asyncio.to_thread(
+        future.result
+    )

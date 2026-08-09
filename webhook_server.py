@@ -6,6 +6,12 @@ import asyncio
 from flask import Flask, request
 
 from edgeclass_bot import process_telegram_update
+from database import (
+    update_plan,
+    reward_referrer,
+    apply_referral_reward,
+)
+from config import PAYSTACK_SECRET_KEY
 from database import update_plan, reward_referrer, apply_referral_reward
 from config import PAYSTACK_SECRET_KEY
 
@@ -23,9 +29,21 @@ def home():
 def telegram_webhook():
     update = request.get_json()
 
-    asyncio.run(process_telegram_update(update))
+    print("📩 TELEGRAM WEBHOOK RECEIVED")
 
-    return "OK", 200
+    try:
+        asyncio.run(
+            process_telegram_update(update)
+        )
+
+        print("✅ TELEGRAM UPDATE PROCESSED")
+
+        return "OK", 200
+
+    except Exception as e:
+        print("❌ TELEGRAM WEBHOOK ERROR:", repr(e))
+
+        return "Error", 500
 
 # ---------------- PAYSTACK WEBHOOK ----------------
 

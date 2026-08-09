@@ -147,8 +147,12 @@ async def admin_callback(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE
 ):
+    print("🔥 ADMIN CALLBACK RECEIVED")
 
     query = update.callback_query
+
+    print("🔥 CALLBACK DATA:", query.data)
+    print("🔥 CALLBACK USER:", query.from_user.id)
 
     await query.answer()
 
