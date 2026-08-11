@@ -34,6 +34,7 @@ from database import (
     save_prediction,
     get_prediction_history,
     remove_duplicate_predictions,
+    get_connection,
 )
 
 from admin_panel import (
@@ -1341,64 +1342,150 @@ Show available commands.
     )    
 
 
-# ================= DATABASE =================
+# ============================================================
+# TELEGRAM APPLICATION
+# ============================================================
 
-init_db()
+application = None
 
-# ================= APPLICATION =================
-
-application = ApplicationBuilder().token(BOT_TOKEN).build()
-
-
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CommandHandler("edge_today", edge_today))
-application.add_handler(CommandHandler("predict", predict))
-application.add_handler(CommandHandler("accumulator", accumulator))
-application.add_handler(CommandHandler("pay", pay))
-application.add_handler(CommandHandler("upgrade_plus", upgrade_plus))
-application.add_handler(CommandHandler("referral", referral))
-application.add_handler(CommandHandler("stats", stats))
-application.add_handler(CommandHandler("myplan", myplan))
-application.add_handler(CommandHandler("admin_expire", expireme))
-application.add_handler(CommandHandler("history", history))
-application.add_handler(CommandHandler("help", help_cmd))
-application.add_handler(CommandHandler("stats_ai", stats_ai))
-application.add_handler(CommandHandler("admin", admin))
+telegram_loop = None
+telegram_thread = None
 
 
-application.add_handler(
-    CallbackQueryHandler(admin_callback, pattern=r"^admin:")
-)
+def create_application():
+    """
+    Creates and configures the Telegram application.
+
+    IMPORTANT:
+    This function does NOT initialize Telegram and does NOT
+    start any background thread.
+    """
+
+    global application
+
+    if application is not None:
+        return application
+
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .build()
+    )
+
+    # ================= COMMAND HANDLERS =================
+
+    application.add_handler(
+        CommandHandler("start", start)
+    )
+
+    application.add_handler(
+        CommandHandler("edge_today", edge_today)
+    )
+
+    application.add_handler(
+        CommandHandler("predict", predict)
+    )
+
+    application.add_handler(
+        CommandHandler("accumulator", accumulator)
+    )
+
+    application.add_handler(
+        CommandHandler("pay", pay)
+    )
+
+    application.add_handler(
+        CommandHandler("upgrade_plus", upgrade_plus)
+    )
+
+    application.add_handler(
+        CommandHandler("referral", referral)
+    )
+
+    application.add_handler(
+        CommandHandler("stats", stats)
+    )
+
+    application.add_handler(
+        CommandHandler("myplan", myplan)
+    )
+
+    application.add_handler(
+        CommandHandler("admin_expire", expireme)
+    )
+
+    application.add_handler(
+        CommandHandler("history", history)
+    )
+
+    application.add_handler(
+        CommandHandler("help", help_cmd)
+    )
+
+    application.add_handler(
+        CommandHandler("stats_ai", stats_ai)
+    )
+
+    application.add_handler(
+        CommandHandler("admin", admin)
+    )
+
+    # ================= CALLBACK HANDLERS =================
+
+    application.add_handler(
+        CallbackQueryHandler(
+            admin_callback,
+            pattern=r"^admin_"
+        )
+    )
+
+    return application
 
 
 # ============================================================
-# PERSISTENT TELEGRAM EVENT LOOP
+# TELEGRAM EVENT LOOP
 # ============================================================
-
-telegram_loop = asyncio.new_event_loop()
-
 
 def run_telegram_loop():
+    """
+    Initializes the Telegram application inside its own
+    persistent event loop.
+    """
+
+    global telegram_loop
+
+    telegram_loop = asyncio.new_event_loop()
+
     asyncio.set_event_loop(telegram_loop)
 
-    # Initialize the Telegram application ONCE.
+    app = create_application()
+
     telegram_loop.run_until_complete(
-        application.initialize()
+        app.initialize()
     )
 
     print("🔥 TELEGRAM APPLICATION INITIALIZED")
 
-    # Keep the event loop alive for the lifetime of the worker.
     telegram_loop.run_forever()
 
 
-telegram_thread = threading.Thread(
-    target=run_telegram_loop,
-    name="telegram-event-loop",
-    daemon=True,
-)
+def start_telegram():
+    """
+    Starts the Telegram background event loop exactly once.
+    """
 
-telegram_thread.start()
+    global telegram_thread
+
+    if telegram_thread is not None:
+        return
+
+    telegram_thread = threading.Thread(
+        target=run_telegram_loop,
+        name="telegram-event-loop",
+        daemon=True,
+    )
+
+    telegram_thread.start()
 
 
 # ============================================================
@@ -1406,9 +1493,29 @@ telegram_thread.start()
 # ============================================================
 
 async def process_telegram_update(update_dict):
+
+    if application is None:
+        raise RuntimeError(
+            "Telegram application has not been started."
+        )
+
+    if telegram_loop is None:
+        raise RuntimeError(
+            "Telegram event loop has not been started."
+        )
+
     update = Update.de_json(
         update_dict,
         application.bot
+    )
+
+    future = asyncio.run_coroutine_threadsafe(
+        application.process_update(update),
+        telegram_loop,
+    )
+
+    await asyncio.wrap_future(
+        future
     )
 
     future = asyncio.run_coroutine_threadsafe(

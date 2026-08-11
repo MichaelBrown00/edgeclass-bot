@@ -5,17 +5,29 @@ import asyncio
 
 from flask import Flask, request
 
-from edgeclass_bot import process_telegram_update
+from edgeclass_bot import (
+    process_telegram_update,
+    start_telegram,
+)
+
 from database import (
     update_plan,
     reward_referrer,
     apply_referral_reward,
 )
-from config import PAYSTACK_SECRET_KEY
-from database import update_plan, reward_referrer, apply_referral_reward
+
 from config import PAYSTACK_SECRET_KEY
 
 app = Flask(__name__)
+
+
+# ============================================================
+# START TELEGRAM BACKGROUND WORKER
+# ============================================================
+
+start_telegram()
+
+print("🔥 Telegram background worker started")
 
 
 @app.route("/")
@@ -103,3 +115,11 @@ def paystack_webhook():
     except Exception as e:
         print("WEBHOOK ERROR:", e)
         return "Error", 500
+
+
+if __name__ == "__main__":
+    app.run(
+        host="127.0.0.1",
+        port=10000,
+        debug=False,
+    )
