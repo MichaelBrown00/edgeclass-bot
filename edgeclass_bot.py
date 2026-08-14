@@ -1351,6 +1351,8 @@ application = None
 telegram_loop = None
 telegram_thread = None
 
+telegram_ready = threading.Event()
+
 
 def create_application():
     """
@@ -1448,11 +1450,11 @@ def create_application():
 
 def run_telegram_loop():
     """
-    Initializes the Telegram application inside its own
-    persistent event loop.
+    Initializes and starts the Telegram application inside
+    its own persistent event loop.
     """
 
-    global telegram_loop
+    global telegram_loop, application
 
     telegram_loop = asyncio.new_event_loop()
 
@@ -1460,12 +1462,24 @@ def run_telegram_loop():
 
     app = create_application()
 
+    # Initialize Telegram application
     telegram_loop.run_until_complete(
         app.initialize()
     )
 
-    print("🔥 TELEGRAM APPLICATION INITIALIZED")
+    # IMPORTANT:
+    # initialize() alone is not enough.
+    # start() puts the PTB application into the running state.
+    telegram_loop.run_until_complete(
+        app.start()
+    )
 
+    print("🔥 TELEGRAM APPLICATION STARTED")
+
+    telegram_ready.set()
+
+    # Keep this event loop alive so webhook requests can
+    # submit updates to it.
     telegram_loop.run_forever()
 
 
@@ -1496,12 +1510,17 @@ async def process_telegram_update(update_dict):
 
     if application is None:
         raise RuntimeError(
-            "Telegram application has not been started."
+            "Telegram application has not been created."
         )
 
     if telegram_loop is None:
         raise RuntimeError(
-            "Telegram event loop has not been started."
+            "Telegram event loop has not been created."
+        )
+
+    if not telegram_ready.is_set():
+        raise RuntimeError(
+            "Telegram application is still starting."
         )
 
     update = Update.de_json(
@@ -1514,16 +1533,5 @@ async def process_telegram_update(update_dict):
         telegram_loop,
     )
 
-    await asyncio.wrap_future(
-        future
-    )
-
-    future = asyncio.run_coroutine_threadsafe(
-        application.process_update(update),
-        telegram_loop,
-    )
-
-    # Wait for Telegram application processing to finish.
-    await asyncio.to_thread(
-        future.result
-    )
+    # Wait for Telegram to finish processing the update.
+    await asyncio.wrap_future(future)
