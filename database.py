@@ -362,6 +362,80 @@ def update_plan(user_id, plan):
     conn.close()
 
 
+def extend_plan(user_id, days=30):
+    """
+    Extend an existing Premium/VIP subscription.
+
+    If the user is currently active, extend from the existing
+    expiry date. If the subscription has expired or has no expiry,
+    extend from today.
+
+    Returns True if the user was found and updated.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT plan, expiry_date
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    if not row:
+        cur.close()
+        conn.close()
+        return False
+
+    plan, expiry = row
+
+    if plan not in ("premium", "vip"):
+        cur.close()
+        conn.close()
+        return False
+
+    today = datetime.now()
+
+    if expiry:
+        try:
+            current_expiry = datetime.strptime(
+                expiry,
+                "%Y-%m-%d"
+            )
+        except ValueError:
+            current_expiry = today
+    else:
+        current_expiry = today
+
+    if current_expiry < today:
+        current_expiry = today
+
+    new_expiry = current_expiry + timedelta(days=days)
+
+    cur.execute(
+        """
+        UPDATE users
+        SET expiry_date=%s
+        WHERE user_id=%s
+        """,
+        (
+            new_expiry.strftime("%Y-%m-%d"),
+            user_id
+        )
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return True
+
+
 def reward_referrer(user_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -1144,3 +1218,128 @@ def get_engine_statistics():
     conn.close()
 
     return rows    
+
+
+# ============================================================
+# ADMIN USER MANAGEMENT
+# ============================================================
+
+def get_admin_user(user_id):
+    """
+    Returns complete user information for the admin panel.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            user_id,
+            referral,
+            referrals,
+            successful_referrals,
+            plan,
+            expiry_date,
+            joined_date,
+            last_payment_reference,
+            last_payment_amount,
+            last_payment_date
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return row
+
+
+def get_admin_user_counts():
+    """
+    Returns total users grouped by subscription plan.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE plan='free') AS free,
+            COUNT(*) FILTER (WHERE plan='premium') AS premium,
+            COUNT(*) FILTER (WHERE plan='vip') AS vip
+        FROM users
+        """
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return {
+        "total": row[0],
+        "free": row[1],
+        "premium": row[2],
+        "vip": row[3],
+    }
+
+
+def get_admin_users(plan=None, limit=10, offset=0):
+    """
+    Returns users for the admin user list.
+
+    If plan is supplied, only users on that plan are returned.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if plan:
+        cur.execute(
+            """
+            SELECT
+                user_id,
+                plan,
+                joined_date,
+                expiry_date,
+                referrals,
+                successful_referrals
+            FROM users
+            WHERE plan=%s
+            ORDER BY user_id DESC
+            LIMIT %s
+            OFFSET %s
+            """,
+            (plan, limit, offset)
+        )
+    else:
+        cur.execute(
+            """
+            SELECT
+                user_id,
+                plan,
+                joined_date,
+                expiry_date,
+                referrals,
+                successful_referrals
+            FROM users
+            ORDER BY user_id DESC
+            LIMIT %s
+            OFFSET %s
+            """,
+            (limit, offset)
+        )
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return rows

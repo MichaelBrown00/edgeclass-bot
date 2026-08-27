@@ -1094,3 +1094,12 @@ async def process_telegram_update(update_dict):
 
     # Wait for Telegram to finish processing the update.
     await asyncio.wrap_future(future)
+
+
+if __name__ == "__main__":
+    start_telegram()
+
+    try:
+        telegram_thread.join()
+    except KeyboardInterrupt:
+        print("\n🛑 TELEGRAM APPLICATION STOPPED")  
