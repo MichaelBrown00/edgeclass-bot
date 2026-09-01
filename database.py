@@ -36,6 +36,39 @@ def init_db():
     """)
 
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+
+            user_id BIGINT NOT NULL,
+
+            reference TEXT UNIQUE NOT NULL,
+
+            amount INTEGER NOT NULL,
+
+            currency TEXT DEFAULT 'NGN',
+
+            plan TEXT,
+
+            status TEXT,
+
+            channel TEXT,
+
+            paid_at TIMESTAMP,
+
+            customer_email TEXT,
+
+            gateway_response TEXT,
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            CONSTRAINT payments_user_fk
+                FOREIGN KEY (user_id)
+                REFERENCES users(user_id)
+                ON DELETE CASCADE
+        )
+    """)
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS predictions (
 
             id SERIAL PRIMARY KEY,
@@ -175,6 +208,58 @@ def init_db():
 
     )
 """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+
+            user_id BIGINT NOT NULL,
+
+            reference TEXT UNIQUE NOT NULL,
+
+            amount INTEGER NOT NULL DEFAULT 0,
+
+            currency TEXT DEFAULT 'NGN',
+
+            plan TEXT,
+
+            status TEXT DEFAULT 'success',
+
+            paid_at TEXT,
+
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS paystack_transactions (
+
+        id SERIAL PRIMARY KEY,
+
+        user_id BIGINT NOT NULL,
+
+        reference TEXT UNIQUE NOT NULL,
+
+        paystack_transaction_id BIGINT,
+
+        amount INTEGER DEFAULT 0,
+
+        currency TEXT,
+
+        plan TEXT,
+
+        status TEXT,
+
+        channel TEXT,
+
+        customer_email TEXT,
+
+        paid_at TEXT,
+
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+    )
+    """)
     
     conn.commit()
     cur.close()
@@ -1343,3 +1428,140 @@ def get_admin_users(plan=None, limit=10, offset=0):
     conn.close()
 
     return rows
+
+
+def get_admin_user_profile(user_id):
+    """
+    Get complete profile/payment information for one user.
+    Used by the admin user profile screen.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                user_id,
+                plan,
+                joined_date,
+                expiry_date,
+                referrals,
+                successful_referrals,
+                last_payment_reference,
+                last_payment_amount,
+                last_payment_date
+            FROM users
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        return cur.fetchone()
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+def record_paystack_transaction(
+    user_id,
+    reference,
+    paystack_transaction_id=None,
+    amount=0,
+    currency=None,
+    plan=None,
+    status=None,
+    channel=None,
+    customer_email=None,
+    paid_at=None,
+):
+    """
+    Records a Paystack transaction.
+
+    Returns True if this is a new transaction.
+    Returns False if the reference already exists.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        INSERT INTO paystack_transactions (
+            user_id,
+            reference,
+            paystack_transaction_id,
+            amount,
+            currency,
+            plan,
+            status,
+            channel,
+            customer_email,
+            paid_at
+        )
+        VALUES (
+            %s, %s, %s, %s, %s,
+            %s, %s, %s, %s, %s
+        )
+        ON CONFLICT (reference)
+        DO NOTHING
+        RETURNING id
+        """,
+        (
+            user_id,
+            reference,
+            paystack_transaction_id,
+            amount,
+            currency,
+            plan,
+            status,
+            channel,
+            customer_email,
+            paid_at,
+        )
+    )
+
+    inserted = cur.fetchone()
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return inserted is not None
+
+
+def get_admin_user_profile(user_id):
+    """
+    Returns the complete admin profile for a single user.
+    """
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT
+            user_id,
+            plan,
+            joined_date,
+            expiry_date,
+            referrals,
+            successful_referrals,
+            last_payment_reference,
+            last_payment_amount,
+            last_payment_date
+        FROM users
+        WHERE user_id=%s
+        """,
+        (user_id,)
+    )
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    return row    

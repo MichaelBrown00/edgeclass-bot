@@ -147,6 +147,95 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def show_admin_user_profile(query, target_user_id):
+    """Display the complete profile of one user."""
+
+    admin_id = query.from_user.id
+
+    if not (is_owner(admin_id) or is_super_admin(admin_id)):
+        await query.answer(
+            "You do not have permission to view user profiles.",
+            show_alert=True,
+        )
+        return
+
+    from database import get_admin_user_profile
+
+    row = get_admin_user_profile(target_user_id)
+
+    if not row:
+        await query.answer(
+            "User not found.",
+            show_alert=True,
+        )
+        return
+
+    (
+        uid,
+        plan,
+        joined_date,
+        expiry_date,
+        referrals,
+        successful_referrals,
+        last_payment_reference,
+        last_payment_amount,
+        last_payment_date,
+    ) = row
+
+    plan = plan or "free"
+
+    if plan == "vip":
+        plan_icon = "🔥"
+    elif plan == "premium":
+        plan_icon = "⭐"
+    else:
+        plan_icon = "🆓"
+
+    text = (
+        "👤 <b>USER PROFILE</b>\n\n"
+        f"🆔 User ID: <code>{_escape_html(uid)}</code>\n\n"
+        f"📋 <b>ACCOUNT</b>\n"
+        f"Plan: {plan_icon} <b>{_escape_html(plan.upper())}</b>\n"
+        f"Joined: {_escape_html(joined_date or 'Unknown')}\n"
+        f"Expires: {_escape_html(expiry_date or 'Unlimited')}\n\n"
+        f"👥 <b>REFERRALS</b>\n"
+        f"Total: <b>{referrals or 0}</b>\n"
+        f"Successful: <b>{successful_referrals or 0}</b>\n\n"
+        f"💳 <b>LATEST PAYMENT</b>\n"
+        f"Reference: "
+        f"<code>{_escape_html(last_payment_reference or 'None')}</code>\n"
+        f"Amount: ₦{(last_payment_amount or 0):,}\n"
+        f"Date: {_escape_html(last_payment_date or 'None')}\n"
+    )
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "⚙️ Actions",
+                callback_data=f"admin:user:actions:{uid}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "💳 Payment History",
+                callback_data=f"admin:user:payments:{uid}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Users",
+                callback_data="admin:users",
+            )
+        ],
+    ]
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
 # ============================================================
 # USERS
 # ============================================================
@@ -216,6 +305,95 @@ async def show_admin_users(query):
     )
 
 
+async def show_admin_user_profile(query, target_user_id):
+    """Display the complete profile of one user."""
+
+    admin_id = query.from_user.id
+
+    if not (is_owner(admin_id) or is_super_admin(admin_id)):
+        await query.answer(
+            "You do not have permission to view user profiles.",
+            show_alert=True,
+        )
+        return
+
+    from database import get_admin_user_profile
+
+    row = get_admin_user_profile(target_user_id)
+
+    if not row:
+        await query.answer(
+            "User not found.",
+            show_alert=True,
+        )
+        return
+
+    (
+        uid,
+        plan,
+        joined_date,
+        expiry_date,
+        referrals,
+        successful_referrals,
+        last_payment_reference,
+        last_payment_amount,
+        last_payment_date,
+    ) = row
+
+    plan = plan or "free"
+
+    if plan == "vip":
+        plan_icon = "🔥"
+    elif plan == "premium":
+        plan_icon = "⭐"
+    else:
+        plan_icon = "🆓"
+
+    text = (
+        "👤 <b>USER PROFILE</b>\n\n"
+        f"🆔 User ID: <code>{_escape_html(uid)}</code>\n\n"
+        f"📋 <b>ACCOUNT</b>\n"
+        f"Plan: {plan_icon} <b>{_escape_html(plan.upper())}</b>\n"
+        f"Joined: {_escape_html(joined_date or 'Unknown')}\n"
+        f"Expires: {_escape_html(expiry_date or 'Unlimited')}\n\n"
+        f"👥 <b>REFERRALS</b>\n"
+        f"Total: <b>{referrals or 0}</b>\n"
+        f"Successful: <b>{successful_referrals or 0}</b>\n\n"
+        f"💳 <b>LATEST PAYMENT</b>\n"
+        f"Reference: "
+        f"<code>{_escape_html(last_payment_reference or 'None')}</code>\n"
+        f"Amount: ₦{(last_payment_amount or 0):,}\n"
+        f"Date: {_escape_html(last_payment_date or 'None')}\n"
+    )
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                "⚙️ Actions",
+                callback_data=f"admin:user:actions:{uid}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "💳 Payment History",
+                callback_data=f"admin:user:payments:{uid}",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "⬅️ Users",
+                callback_data="admin:users",
+            )
+        ],
+    ]
+
+    await query.edit_message_text(
+        text,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
 async def show_all_users(query, page=0):
     """Display users with pagination."""
 
@@ -238,6 +416,8 @@ async def show_all_users(query, page=0):
         limit=limit,
         offset=offset,
     )
+
+    keyboard = []
 
     text = (
         "👥 <b>ALL USERS</b>\n\n"
@@ -272,7 +452,12 @@ async def show_all_users(query, page=0):
 
             text += "\n"
 
-    keyboard = []
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"👤 View {uid}",
+                    callback_data=f"admin:user:{uid}",
+                )
+            ])
 
     navigation = []
 
@@ -306,7 +491,7 @@ async def show_all_users(query, page=0):
         text,
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard),
-    )   
+    )  
 
 
 async def show_admin_plan_users(query, plan):
@@ -1171,6 +1356,25 @@ async def admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "admin:users":
         await show_admin_users(query)
         return
+
+    if data.startswith("admin:user:"):
+        parts = data.split(":")
+
+        if len(parts) == 3:
+            try:
+                target_user_id = int(parts[2])
+            except ValueError:
+                await query.answer(
+                    "Invalid user ID.",
+                    show_alert=True,
+                )
+                return
+
+            await show_admin_user_profile(
+                query,
+                target_user_id,
+            )
+            return
 
     # --------------------------------------------------------
     # ALL USERS

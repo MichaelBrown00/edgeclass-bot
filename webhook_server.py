@@ -17,6 +17,7 @@ from database import (
     update_plan,
     reward_referrer,
     apply_referral_reward,
+    record_paystack_transaction,
 )
 
 from config import PAYSTACK_SECRET_KEY
@@ -84,6 +85,7 @@ def telegram_webhook():
         return "OK", 200
 
     except Exception as e:
+
         print(
             "❌ TELEGRAM WEBHOOK ERROR:",
             repr(e)
@@ -103,6 +105,10 @@ def paystack_webhook():
 
     payload = request.data
 
+    # --------------------------------------------------------
+    # PAYSTACK SIGNATURE VERIFICATION
+    # --------------------------------------------------------
+
     if PAYSTACK_SECRET_KEY:
 
         hash_code = hmac.new(
@@ -118,16 +124,33 @@ def paystack_webhook():
             print("❌ Invalid signature")
             return "Forbidden", 403
 
+    # --------------------------------------------------------
+    # PROCESS WEBHOOK
+    # --------------------------------------------------------
+
     try:
 
         data = request.get_json()
 
+        if not data:
+            print("❌ Empty Paystack webhook")
+            return "Bad Request", 400
+
         print("EVENT:", data.get("event"))
         print("DATA:", data)
 
+        # ----------------------------------------------------
+        # SUCCESSFUL PAYMENT
+        # ----------------------------------------------------
+
         if data.get("event") == "charge.success":
 
-            metadata = data["data"].get(
+            payment_data = data.get(
+                "data",
+                {}
+            )
+
+            metadata = payment_data.get(
                 "metadata",
                 {}
             )
@@ -137,43 +160,139 @@ def paystack_webhook():
             user_id = metadata.get("user_id")
             plan = metadata.get("plan")
 
+            reference = payment_data.get(
+                "reference"
+            )
+
+            transaction_id = payment_data.get(
+                "id"
+            )
+
+            amount = payment_data.get(
+                "amount",
+                0
+            )
+
+            currency = payment_data.get(
+                "currency"
+            )
+
+            channel = payment_data.get(
+                "channel"
+            )
+
+            customer = payment_data.get(
+                "customer",
+                {}
+            )
+
+            customer_email = customer.get(
+                "email"
+            )
+
+            paid_at = payment_data.get(
+                "paid_at"
+            )
+
             print("USER:", user_id)
             print("PLAN:", plan)
+            print("REFERENCE:", reference)
 
-            if user_id and plan:
+            # ------------------------------------------------
+            # VALIDATE PAYMENT DATA
+            # ------------------------------------------------
 
-                update_plan(
-                    int(user_id),
-                    plan
-                )
-
-                reward_referrer(
-                    int(user_id)
-                )
-
-                apply_referral_reward(
-                    int(user_id)
-                )
+            if not user_id or not plan or not reference:
 
                 print(
-                    f"✅ Updated PostgreSQL: "
-                    f"{user_id} -> {plan}"
+                    "❌ Missing payment metadata "
+                    "or reference"
                 )
+
+                return "OK", 200
+
+            # ------------------------------------------------
+            # RECORD PAYMENT
+            # ------------------------------------------------
+
+            is_new_payment = record_paystack_transaction(
+                user_id=int(user_id),
+                reference=reference,
+                paystack_transaction_id=transaction_id,
+                amount=amount,
+                currency=currency,
+                plan=plan,
+                status="success",
+                channel=channel,
+                customer_email=customer_email,
+                paid_at=paid_at,
+            )
+
+            # ------------------------------------------------
+            # DUPLICATE WEBHOOK PROTECTION
+            # ------------------------------------------------
+
+            if not is_new_payment:
 
                 print(
-                    f"🎁 Referral reward processed "
-                    f"for {user_id}"
+                    "⚠️ Duplicate Paystack webhook ignored: "
+                    f"{reference}"
                 )
 
-            else:
-                print("❌ Missing metadata")
+                return "OK", 200
+
+            # ------------------------------------------------
+            # UPDATE SUBSCRIPTION
+            # ------------------------------------------------
+
+            update_plan(
+                int(user_id),
+                plan
+            )
+
+            # ------------------------------------------------
+            # REFERRAL REWARD
+            # ------------------------------------------------
+
+            reward_referrer(
+                int(user_id)
+            )
+
+            apply_referral_reward(
+                int(user_id)
+            )
+
+            # ------------------------------------------------
+            # SUCCESS LOGGING
+            # ------------------------------------------------
+
+            print(
+                "✅ Updated PostgreSQL: "
+                f"{user_id} -> {plan}"
+            )
+
+            print(
+                "🎁 Referral reward processed "
+                f"for {user_id}"
+            )
+
+        # ----------------------------------------------------
+        # OTHER PAYSTACK EVENTS
+        # ----------------------------------------------------
+
+        else:
+
+            print(
+                "ℹ️ Paystack event ignored: "
+                f"{data.get('event')}"
+            )
 
         return "OK", 200
 
     except Exception as e:
 
         print(
-            "WEBHOOK ERROR:",
+            "❌ WEBHOOK ERROR:",
             repr(e)
         )
 
