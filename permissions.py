@@ -86,3 +86,15 @@ def can_broadcast(user_id: int) -> bool:
         or is_super_admin(user_id)
         or is_premium_moderator(user_id)
     )
+
+
+def has_full_access(user_id: int) -> bool:
+    """
+    Owner, Super Admin, and Premium Moderator
+    have unrestricted access to Premium and VIP features.
+    """
+    return (
+        is_owner(user_id)
+        or is_super_admin(user_id)
+        or is_premium_moderator(user_id)
+    )    

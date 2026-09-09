@@ -20,7 +20,8 @@ from config import (
 from permissions import (
     is_owner,
     is_super_admin,
-    is_premium_moderator
+    is_premium_moderator,
+    has_full_access
 )
 
 from database import (
@@ -131,12 +132,16 @@ Upgrade for Premium predictions.
 
 async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if check_subscription(update.effective_user.id) == "free":
+    user_id = update.effective_user.id
+
+    if not has_full_access(user_id) and check_subscription(user_id) == "free":
         await update.message.reply_text(
             "❌ Upgrade to Premium to use this feature."
         )
         return
-    plan = check_subscription(update.effective_user.id)
+
+    # Staff members receive VIP-level product access
+    plan = "vip" if has_full_access(user_id) else check_subscription(user_id)
 
     bets = ai_model(plan)
 
@@ -298,12 +303,14 @@ async def predict(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def accumulator(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    if check_subscription(update.effective_user.id) == "free":
-        await update.message.reply_text(
-            "❌ Upgrade to Premium."
-        )
+    user_id = update.effective_user.id
+
+    if not has_full_access(user_id) and check_subscription(user_id) == "free":
+        await update.message.reply_text("❌ Upgrade to Premium.")
         return
-    plan = check_subscription(update.effective_user.id)
+
+    # Staff members receive VIP-level product access
+    plan = "vip" if has_full_access(user_id) else check_subscription(user_id)
 
     bets = ai_model(plan)
 
@@ -520,15 +527,65 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print("===== HISTORY CALLED =====")
 
-    if check_subscription(update.effective_user.id) == "free":
+    user_id = update.effective_user.id
+
+    # Normal Free users must upgrade.
+    # Owner, Super Admin, and Premium Moderator bypass this restriction.
+    if not has_full_access(user_id) and check_subscription(user_id) == "free":
         await update.message.reply_text(
             "❌ Upgrade to Premium to view prediction history."
         )
         return
 
-    plan = check_subscription(update.effective_user.id)
+    # Staff members have full Premium + VIP access.
+    # Normal users see history for their current plan.
+    if has_full_access(user_id):
+        plans = ("premium", "vip")
+    else:
+        plans = (check_subscription(user_id),)
 
-    rows = get_prediction_history(plan)
+    conn = get_connection()
+    cur = conn.cursor()
+
+    if len(plans) == 2:
+        cur.execute("""
+            SELECT
+                match,
+                prediction,
+                confidence,
+                odds,
+                league,
+                kickoff,
+                status,
+                actual_score,
+                tier
+            FROM predictions
+            WHERE tier IN (%s, %s)
+            ORDER BY id DESC
+            LIMIT 10
+        """, plans)
+    else:
+        cur.execute("""
+            SELECT
+                match,
+                prediction,
+                confidence,
+                odds,
+                league,
+                kickoff,
+                status,
+                actual_score,
+                tier
+            FROM predictions
+            WHERE tier=%s
+            ORDER BY id DESC
+            LIMIT 10
+        """, plans)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
 
     if not rows:
 
@@ -555,10 +612,10 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ) = row
 
         if tier == "vip":
-           badge = "👑 VIP Prediction"
+            badge = "👑 VIP Prediction"
 
         elif tier == "premium":
-             badge = "⭐ Premium Prediction"
+            badge = "⭐ Premium Prediction"
 
         else:
             badge = "🆓 Free Prediction"
