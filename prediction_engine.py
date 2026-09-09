@@ -6,6 +6,7 @@ Prediction Engine
 """
 
 from collections import Counter
+import config
 from dynamic_weights import get_dynamic_weights
 from unittest import signals
 
