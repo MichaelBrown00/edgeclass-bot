@@ -91,44 +91,91 @@ def fetch_fixtures_for_date(date_string):
         return []
     
 
-def fetch_team_recent_matches(team_id, limit=5):
+def fetch_team_recent_matches(
+    team_id,
+    limit=5,
+    exclude_fixture_id=None,
+    before_utc=None
+):
     """
-    Fetch recent matches with memory cache.
+    Fetch the team's most recent completed matches.
+
+    The cached data contains completed matches only.
+    Target-specific filtering is applied after loading the cache so
+    one prediction cannot contaminate another prediction's history.
+
+    exclude_fixture_id:
+        Prevents the target fixture itself from being used as history.
+
+    before_utc:
+        Prevents matches occurring at or after the target kickoff
+        from being used as historical evidence.
     """
 
     if team_id in TEAM_FORM_CACHE:
-        return TEAM_FORM_CACHE[team_id]
-
-    url = (
-        f"https://api.football-data.org/v4/"
-        f"teams/{team_id}/matches?limit={limit}"
-    )
-
-    headers = {
-        "X-Auth-Token": config.FOOTBALL_DATA_KEY
-    }
-
-    try:
-
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=20
+        completed_matches = TEAM_FORM_CACHE[team_id]
+    else:
+        # Request a larger pool because the API may return
+        # future fixtures before completed historical matches.
+        url = (
+            f"https://api.football-data.org/v4/"
+            f"teams/{team_id}/matches?limit=50"
         )
 
-        response.raise_for_status()
+        headers = {
+            "X-Auth-Token": config.FOOTBALL_DATA_KEY
+        }
 
-        matches = response.json().get("matches", [])
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=20
+            )
+            response.raise_for_status()
 
-        TEAM_FORM_CACHE[team_id] = matches
+            matches = response.json().get("matches", [])
 
-        return matches
+            # Keep ONLY matches that have actually finished.
+            completed_matches = [
+                match
+                for match in matches
+                if match.get("status") == "FINISHED"
+            ]
 
-    except Exception as e:
+            # Sort newest completed matches first.
+            completed_matches.sort(
+                key=lambda match: match.get("utcDate", ""),
+                reverse=True
+            )
 
-        print(f"Error fetching team {team_id}: {e}")
+            # Cache the RAW completed history.
+            TEAM_FORM_CACHE[team_id] = completed_matches
 
-        return []
+        except Exception as e:
+            print(f"Error fetching team {team_id}: {e}")
+            return []
+
+    # Start with the complete cached historical dataset.
+    filtered_matches = completed_matches
+
+    # Never allow the target fixture itself into its own history.
+    if exclude_fixture_id is not None:
+        filtered_matches = [
+            match
+            for match in filtered_matches
+            if match.get("id") != exclude_fixture_id
+        ]
+
+    # Never use a match occurring at or after the target kickoff.
+    if before_utc is not None:
+        filtered_matches = [
+            match
+            for match in filtered_matches
+            if match.get("utcDate", "") < before_utc
+        ]
+
+    return filtered_matches[:limit]
     
 
 def ai_model(plan="premium"):
@@ -179,7 +226,7 @@ def ai_model(plan="premium"):
 
     for match in matches:
 
-        if match["status"] != "SCHEDULED":
+        if match["status"] not in ["SCHEDULED", "TIMED"]:
             continue
 
         fixture_id = match["id"]
@@ -190,13 +237,24 @@ def ai_model(plan="premium"):
         home_id = match["homeTeam"]["id"]
         away_id = match["awayTeam"]["id"]
 
-        home_matches = fetch_team_recent_matches(home_id)
-        away_matches = fetch_team_recent_matches(away_id)
+        fixture_id = match["id"]
 
         league = match["competition"]["name"]
 
         utc_time = datetime.fromisoformat(
-        match["utcDate"].replace("Z", "+00:00")
+            match["utcDate"].replace("Z", "+00:00")
+        )
+
+        home_matches = fetch_team_recent_matches(
+            home_id,
+            exclude_fixture_id=fixture_id,
+            before_utc=match["utcDate"]
+        )
+
+        away_matches = fetch_team_recent_matches(
+            away_id,
+            exclude_fixture_id=fixture_id,
+            before_utc=match["utcDate"]
         )
 
         local_time = utc_time + timedelta(hours=1)
@@ -342,7 +400,7 @@ def ai_model(plan="premium"):
 
             for match in matches:
 
-                if match["status"] != "SCHEDULED":
+                if match["status"] not in ["SCHEDULED", "TIMED"]:
                      continue
 
                 fixture_id = match["id"]
