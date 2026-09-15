@@ -19,76 +19,164 @@ import config
 TEAM_FORM_CACHE = {}
 
 
-def fetch_today_fixtures():
+# ============================================
+# FOOTBALL-DATA.ORG FIXTURE REQUEST HELPERS
+# ============================================
 
-    url = "https://api.football-data.org/v4/matches"
+_fixture_request_last_at = 0.0
+
+
+def _fetch_match_list(url, label="fixtures"):
+    """
+    Fetch fixtures from Football-Data.org with rate-limit protection.
+
+    Requests are spaced out to avoid burst 429 errors.
+    HTTP 429 responses are retried using Retry-After when available.
+    """
+
+    global _fixture_request_last_at
 
     headers = {
         "X-Auth-Token": config.FOOTBALL_DATA_KEY
     }
 
-    try:
+    max_attempts = 3
+    minimum_interval = 7.0
 
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=20
-        )
+    for attempt in range(1, max_attempts + 1):
 
-        print("STATUS:", response.status_code)
+        try:
+            # --------------------------------------------
+            # Pace requests to Football-Data.org
+            # --------------------------------------------
 
-        data = response.json()
+            elapsed = time.monotonic() - _fixture_request_last_at
 
-        print("FULL RESPONSE:")
-        print(data)
+            if elapsed < minimum_interval:
+                wait_seconds = minimum_interval - elapsed
 
-        matches = data.get("matches", [])
+                print(
+                    f"Waiting {wait_seconds:.1f}s before "
+                    f"fixture request..."
+                )
 
-        print(f"Matches found: {len(matches)}")
+                time.sleep(wait_seconds)
 
-        return matches
+            _fixture_request_last_at = time.monotonic()
 
-    except Exception as e:
+            # --------------------------------------------
+            # API REQUEST
+            # --------------------------------------------
 
-        print("Football Data Error:", e)
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=20
+            )
 
-        return []
-    
+            print(
+                f"Fixture API status for {label}: "
+                f"{response.status_code}"
+            )
+
+            # --------------------------------------------
+            # RATE LIMIT
+            # --------------------------------------------
+
+            if response.status_code == 429:
+
+                retry_after = response.headers.get(
+                    "Retry-After"
+                )
+
+                try:
+                    wait_seconds = float(retry_after)
+                except (TypeError, ValueError):
+                    wait_seconds = 7.0 * attempt
+
+                if attempt < max_attempts:
+
+                    print(
+                        f"Rate limit reached for {label}. "
+                        f"Retrying in {wait_seconds:.1f}s..."
+                    )
+
+                    time.sleep(wait_seconds)
+
+                    continue
+
+                print(
+                    f"Rate limit persisted for {label} "
+                    f"after {max_attempts} attempts."
+                )
+
+                return []
+
+            # --------------------------------------------
+            # OTHER HTTP ERRORS
+            # --------------------------------------------
+
+            response.raise_for_status()
+
+            data = response.json()
+
+            matches = data.get("matches", [])
+
+            print(
+                f"{label}: {len(matches)} matches"
+            )
+
+            return matches
+
+        except requests.exceptions.RequestException as e:
+
+            print(
+                f"Fixture API error for {label}: {e}"
+            )
+
+            return []
+
+        except Exception as e:
+
+            print(
+                f"Unexpected fixture error for {label}: {e}"
+            )
+
+            return []
+
+    return []
+
+
+def fetch_today_fixtures():
+
+    url = (
+        "https://api.football-data.org/v4/matches"
+    )
+
+    matches = _fetch_match_list(
+        url,
+        label="today"
+    )
+
+    print(
+        f"Today's fixtures found: {len(matches)}"
+    )
+
+    return matches
+
 
 def fetch_fixtures_for_date(date_string):
 
     url = (
         "https://api.football-data.org/v4/matches"
-        f"?dateFrom={date_string}&dateTo={date_string}"
+        f"?dateFrom={date_string}"
+        f"&dateTo={date_string}"
     )
 
-    headers = {
-        "X-Auth-Token": config.FOOTBALL_DATA_KEY
-    }
-
-    try:
-
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=20
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        matches = data.get("matches", [])
-
-        print(f"{date_string}: {len(matches)} matches")
-
-        return matches
-
-    except Exception as e:
-
-        print(e)
-
-        return []
+    return _fetch_match_list(
+        url,
+        label=date_string
+    )
     
 
 def fetch_team_recent_matches(
