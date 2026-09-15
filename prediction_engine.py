@@ -347,118 +347,102 @@ def calculate_team_rating(team_id, matches, home=False):
 
 
 def predict_match(
-    match,    
+    match,
     home_team_id,
     away_team_id,
     home_matches,
     away_matches
 ):
     """
-    EdgeClass AI Match Predictor
+    EdgeClass Prediction Engine V2
+
+    Pipeline:
+        Evidence
+        -> Market Scoring
+        -> Best Market
+        -> Market-specific Confidence
+        -> Data Quality
+        -> Value
+        -> Grade
+        -> Market-specific Reasoning
     """
+
+    # ============================================================
+    # 1. INITIALIZE
+    # ============================================================
 
     scores = initialize_market_scores()
 
     weights = get_dynamic_weights()
 
-    home_form = calculate_form(home_team_id, home_matches)
-    away_form = calculate_form(away_team_id, away_matches)
+    # Make sure all learned weight values are numeric.
+    #
+    # weights.json stores learned weights around 10.0.
+    # Keep the actual learned values here.
+    # Convert them to scoring multipliers exactly once below.
+    form_weight = float(weights.get("form", 10.0))
+    attack_weight = float(weights.get("attack", 10.0))
+    defense_weight = float(weights.get("defense", 10.0))
+    momentum_weight = float(weights.get("momentum", 10.0))
+    xg_weight = float(weights.get("xg", 10.0))
+    xga_weight = float(weights.get("xga", 10.0))
+    h2h_weight = float(weights.get("h2h", 10.0))
+    squad_weight = float(weights.get("squad", 10.0))
+    league_weight = float(weights.get("league", 10.0))
+    motivation_weight = float(weights.get("motivation", 10.0))
+    fatigue_weight = float(weights.get("fatigue", 10.0))
+    referee_weight = float(weights.get("referee", 10.0))
+    homeaway_weight = float(weights.get("homeaway", 10.0))
 
-    # FORM ENGINE VOTES
+    # Normalize learned weights around 10.0.
+    # Example: 10.25 -> 1.025.
+    form_multiplier = form_weight / 10.0
+    attack_multiplier = attack_weight / 10.0
+    defense_multiplier = defense_weight / 10.0
+    momentum_multiplier = momentum_weight / 10.0
+    xg_multiplier = xg_weight / 10.0
+    xga_multiplier = xga_weight / 10.0
+    h2h_multiplier = h2h_weight / 10.0
+    squad_multiplier = squad_weight / 10.0
+    league_multiplier = league_weight / 10.0
+    motivation_multiplier = motivation_weight / 10.0
+    fatigue_multiplier = fatigue_weight / 10.0
+    referee_multiplier = referee_weight / 10.0
+    homeaway_multiplier = homeaway_weight / 10.0
 
-    if home_form > away_form:
+    # ============================================================
+    # 2. EVIDENCE ENGINES
+    # ============================================================
 
-        form_weight = weights("form")
+    home_form = calculate_form(
+        home_team_id,
+        home_matches
+    )
 
-        add_score(
-            scores,
-            "Home Win",
-            12 * form_weight
-        )
+    away_form = calculate_form(
+        away_team_id,
+        away_matches
+    )
 
-        add_score(scores, "Double Chance", 6)
+    home_attack = calculate_attack(
+        home_team_id,
+        home_matches
+    )
 
-    elif away_form > home_form:
+    away_attack = calculate_attack(
+        away_team_id,
+        away_matches
+    )
 
-        form_weight = weights["form"]
+    home_defense = calculate_defense(
+        home_team_id,
+        home_matches
+    )
 
-        add_score(
-            scores,
-            "Away Win",
-            12 * form_weight
-        )
-
-        add_score(scores, "Double Chance", 6)
-
-    else:
-
-        add_score(scores, "Draw", 8)
-
-    home_attack = calculate_attack(home_team_id, home_matches)
-    away_attack = calculate_attack(away_team_id, away_matches)
-
-    # ==============================
-    # ATTACK ENGINE VOTES
-    # ==============================
-
-    if home_attack >= 80:
-
-        attack_weight = weights["attack"]
-
-        add_score(
-           scores,
-           "Home Win",
-           10 * attack_weight
-       )
-        add_score(scores, "Over 2.5 Goals", 6)
-
-    if away_attack >= 80:
-
-        add_score(
-            scores,
-            "Away Win",
-            10 * attack_weight
-        )
-        add_score(scores, "Over 2.5 Goals", 6)
-
-    if home_attack >= 75 and away_attack >= 75:
-
-        add_score(scores, "BTTS", 12)
-        add_score(scores, "Over 2.5 Goals", 10)
-
-    elif home_attack >= 70 or away_attack >= 70:
-
-        add_score(scores, "Over 1.5 Goals", 8)
-
-    home_defense = calculate_defense(home_team_id, home_matches)
-    away_defense = calculate_defense(away_team_id, away_matches)
-
-    # ==============================
-    # DEFENSE ENGINE VOTES
-    # ==============================
-
-    # Strong defenses usually favor lower-scoring matches
-    if home_defense >= 80 and away_defense >= 80:
-
-        defense_weight = weights["defense"]
-
-        add_score(
-            scores,
-           "Under 2.5 Goals",
-           12 * defense_weight
-        )
-        add_score(scores, "Double Chance", 6)
-
-    # Weak defenses usually favor goals
-    elif home_defense <= 60 and away_defense <= 60:
-
-        add_score(scores, "BTTS", 10)
-        add_score(scores, "Over 2.5 Goals", 10)
-
-    # One weak defense often still produces goals
-    elif home_defense <= 60 or away_defense <= 60:
-
-          add_score(scores, "Over 1.5 Goals", 8)
+    away_defense = calculate_defense(
+        away_team_id,
+        away_matches
+    )
 
     home_momentum = calculate_recent_momentum(
         home_team_id,
@@ -468,33 +452,11 @@ def predict_match(
     away_momentum = calculate_recent_momentum(
         away_team_id,
         away_matches
-    )      
+    )
 
-    # ==============================
-    # MOMENTUM ENGINE VOTES
-    # ==============================
-
-    if home_momentum >= 80:
-
-        momentum_weight = weights["momentum"]
-
-        add_score(
-            scores,
-            "Home Win",
-            10 * momentum_weight
-        )    
-
-    elif away_momentum >= 80:
-
-        add_score(
-            scores,
-            "Away Win",
-            10 * momentum_weight
-        )
-
-    if abs(home_momentum - away_momentum) <= 5:
-
-        add_score(scores, "Double Chance", 6)
+    # ============================================================
+    # 3. TEAM RATINGS
+    # ============================================================
 
     home_rating = calculate_team_rating(
         home_team_id,
@@ -508,349 +470,651 @@ def predict_match(
         home=False
     )
 
-    home_rating += (home_momentum - 75) * 0.20
-    away_rating += (away_momentum - 75) * 0.20
-
-    # Squad Strength (85 = neutral baseline)
+    # Squad strength
     squad = calculate_squad_strength(
         home_team_id,
         away_team_id
     )
 
-    home_rating += (squad["home"] - SQUAD_BASELINE) * 0.25
-    away_rating += (squad["away"] - SQUAD_BASELINE) * 0.25
+    home_rating += (
+        squad["home"] - SQUAD_BASELINE
+    ) * 0.25
 
-    # Fatigue Engine
+    away_rating += (
+        squad["away"] - SQUAD_BASELINE
+    ) * 0.25
+
+    # Fatigue
     home_fatigue = calculate_fatigue(home_matches)
     away_fatigue = calculate_fatigue(away_matches)
-    
-    home_rating += (home_fatigue - 85) * 0.20
-    away_rating += (away_fatigue - 85) * 0.20
 
-    # Expected Goals (xG)
+    home_rating += (
+        home_fatigue - 85
+    ) * 0.20
+
+    away_rating += (
+        away_fatigue - 85
+    ) * 0.20
+
+    # ============================================================
+    # 4. ESTIMATED GOAL METRICS
+    # ============================================================
+    #
+    # NOTE:
+    # calculate_expected_goals() currently calculates goal-based
+    # estimates rather than provider-grade statistical xG.
+    # We preserve the existing interface for V2 compatibility.
+    #
+
     home_xg = calculate_expected_goals(
-    home_team_id,
-    home_matches
+        home_team_id,
+        home_matches
     )
 
     away_xg = calculate_expected_goals(
-    away_team_id,
-    away_matches
+        away_team_id,
+        away_matches
     )
 
-    # Better attacking xG increases rating
     home_rating += home_xg["xg"] * 3
     away_rating += away_xg["xg"] * 3
 
-    # Lower xGA means stronger defense
-    home_rating -= home_xg["xga"] * 2
-    away_rating -= away_xg["xga"] * 2
+    home_rating -= home_xg["xga"] * 2 * xga_multiplier
+    away_rating -= away_xg["xga"] * 2 * xga_multiplier
 
-    # ==============================
-    # xG ENGINE VOTES
-    # ==============================
+    # ============================================================
+    # 5. HEAD-TO-HEAD
+    # ============================================================
 
-    # Strong attacking expected goals
-    if home_xg["xg"] >= 2.0:
-        xg_weight = weights["xg"]
+    h2h = analyze_head_to_head(
+        home_team_id,
+        away_team_id
+    )
 
+    # ============================================================
+    # 6. HOME / AWAY
+    # ============================================================
+
+    home_ground_strength = calculate_home_away_strength(
+        home_team_id,
+        home_matches,
+        home=True
+    )
+
+    away_ground_strength = calculate_home_away_strength(
+        away_team_id,
+        away_matches,
+        home=False
+    )
+
+    # ============================================================
+    # 7. LEAGUE STRENGTH
+    # ============================================================
+
+    home_league_strength = (
+        get_league_strength(
+            home_matches[0]["competition"]["name"]
+        )
+        if home_matches
+        else 75
+    )
+
+    away_league_strength = (
+        get_league_strength(
+            away_matches[0]["competition"]["name"]
+        )
+        if away_matches
+        else 75
+    )
+
+    home_rating += (
+        home_league_strength - 75
+    ) * 0.20
+
+    away_rating += (
+        away_league_strength - 75
+    ) * 0.20
+
+    # ============================================================
+    # 8. MOTIVATION / WEATHER / REFEREE
+    # ============================================================
+
+    motivation = calculate_motivation(match)
+    weather = calculate_weather(match)
+    referee = calculate_referee(match)
+
+    home_rating += (
+        motivation["home"] - 50
+    ) * 0.20
+
+    away_rating += (
+        motivation["away"] - 50
+    ) * 0.20
+
+    home_rating += (
+        weather["home"] - 50
+    ) * 0.15
+
+    away_rating += (
+        weather["away"] - 50
+    ) * 0.15
+
+    home_rating += (
+        referee["home"] - 50
+    ) * 0.10
+
+    away_rating += (
+        referee["away"] - 50
+    ) * 0.10
+
+    # Home / away performance adjustment
+    home_rating += (
+        home_ground_strength - 50
+    ) * 0.30
+
+    away_rating += (
+        away_ground_strength - 50
+    ) * 0.30
+
+    # ============================================================
+    # 9. MARKET SCORING
+    # ============================================================
+
+    # ------------------------------------------------------------
+    # FORM
+    # ------------------------------------------------------------
+
+    if home_form > away_form:
         add_score(
             scores,
             "Home Win",
-            10 * xg_weight
+            12 * form_multiplier
         )
-        add_score(scores, "Over 2.5 Goals", 8)
+
+        add_score(
+            scores,
+            "Double Chance",
+            6
+        )
+
+    elif away_form > home_form:
+        add_score(
+            scores,
+            "Away Win",
+            12 * form_multiplier
+        )
+
+        add_score(
+            scores,
+            "Double Chance",
+            6
+        )
+
+    else:
+        add_score(
+            scores,
+            "Draw",
+            8
+        )
+
+    # ------------------------------------------------------------
+    # ATTACK
+    # ------------------------------------------------------------
+
+    if home_attack >= 80:
+        add_score(
+            scores,
+            "Home Win",
+            10 * attack_multiplier
+        )
+
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            6
+        )
+
+    if away_attack >= 80:
+        add_score(
+            scores,
+            "Away Win",
+            10 * attack_multiplier
+        )
+
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            6
+        )
+
+    if home_attack >= 75 and away_attack >= 75:
+        add_score(
+            scores,
+            "BTTS",
+            12
+        )
+
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            10
+        )
+
+    elif home_attack >= 70 or away_attack >= 70:
+        add_score(
+            scores,
+            "Over 1.5 Goals",
+            8
+        )
+
+    # ------------------------------------------------------------
+    # DEFENSE
+    # ------------------------------------------------------------
+
+    if home_defense >= 80 and away_defense >= 80:
+        add_score(
+            scores,
+            "Under 2.5 Goals",
+            12 * defense_multiplier
+        )
+
+        add_score(
+            scores,
+            "Double Chance",
+            6
+        )
+
+    elif home_defense <= 60 and away_defense <= 60:
+        add_score(
+            scores,
+            "BTTS",
+            10
+        )
+
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            10
+        )
+
+    elif home_defense <= 60 or away_defense <= 60:
+        add_score(
+            scores,
+            "Over 1.5 Goals",
+            8
+        )
+
+    # ------------------------------------------------------------
+    # MOMENTUM
+    # ------------------------------------------------------------
+
+    if home_momentum >= 80:
+        add_score(
+            scores,
+            "Home Win",
+            10 * momentum_multiplier
+        )
+
+    if away_momentum >= 80:
+        add_score(
+            scores,
+            "Away Win",
+            10 * momentum_multiplier
+        )
+
+    if abs(home_momentum - away_momentum) <= 5:
+        add_score(
+            scores,
+            "Double Chance",
+            6
+        )
+
+    # ------------------------------------------------------------
+    # ESTIMATED GOAL METRICS
+    # ------------------------------------------------------------
+
+    if home_xg["xg"] >= 2.0:
+        add_score(
+            scores,
+            "Home Win",
+            10 * xg_multiplier
+        )
+
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            8
+        )
 
     if away_xg["xg"] >= 2.0:
         add_score(
             scores,
             "Away Win",
-            10 * xg_weight
+            10 * xg_multiplier
         )
-        add_score(scores, "Over 2.5 Goals", 8)
-
-    # Both teams creating lots of chances
-    if  home_xg["xg"] >= 1.5 and away_xg["xg"] >= 1.5:
-        add_score(scores, "BTTS", 12)
-
-    # Weak defenses (high expected goals against)
-    if home_xg["xga"] >= 1.6 or away_xg["xga"] >= 1.6:
-        add_score(scores, "Over 2.5 Goals", 8)
-
-    h2h = analyze_head_to_head(
-        home_team_id,
-        away_team_id
-    )    
-
-    # ==============================
-    # H2H ENGINE VOTES
-    # ==============================
-
-    # Previous meetings favour today's home team
-    if h2h["home_wins"] > h2h["away_wins"]:
-
-        h2h_weight = weights["h2h"]
 
         add_score(
             scores,
-            "Home Win",
-            8 * h2h_weight
+            "Over 2.5 Goals",
+            8
         )
-        add_score(scores, "Double Chance", 5)
 
-    # Previous meetings favour today's away team
+    if (
+        home_xg["xg"] >= 1.5
+        and away_xg["xg"] >= 1.5
+    ):
+        add_score(
+            scores,
+            "BTTS",
+            12
+        )
+
+    if (
+        home_xg["xga"] >= 1.6
+        or away_xg["xga"] >= 1.6
+    ):
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            8
+        )
+
+    # ------------------------------------------------------------
+    # H2H
+    # ------------------------------------------------------------
+
+    if h2h["home_wins"] > h2h["away_wins"]:
+        add_score(
+            scores,
+            "Home Win",
+            8 * h2h_multiplier
+        )
+
+        add_score(
+            scores,
+            "Double Chance",
+            5
+        )
+
     elif h2h["away_wins"] > h2h["home_wins"]:
-
         add_score(
             scores,
             "Away Win",
-            8 * h2h_weight
+            8 * h2h_multiplier
         )
-        add_score(scores, "Double Chance", 5)
-
-    # Lots of draws between these teams
-    if h2h["draws"] >= 2:
-
-        add_score(scores, "Draw", 6)
-
-    # BTTS history
-    if h2h["btts"] >= 3:
-
-       add_score(scores, "BTTS", 8)
-
-    # Over 2.5 history
-    if h2h["over25"] >= 3:
-
-       add_score(scores, "Over 2.5 Goals", 8)
-
-    """
-# ==========================================
-# OLD H2H ENGINE (Archived)
-# ==========================================
-# This was an older version that expected:
-#   h2h["winner"]
-#   h2h["btts_rate"]
-#   h2h["over25_rate"]
-#
-# The current analyze_head_to_head() now returns:
-#   home_wins
-#   away_wins
-#   draws
-#   btts
-#   over25
-#
-# Keeping this block for future reference in case
-# we redesign the H2H engine later.
-
-if h2h["winner"] == "HOME":
-
-    add_score(scores, "Home Win", 8)
-    add_score(scores, "Double Chance", 5)
-
-elif h2h["winner"] == "AWAY":
-
-    add_score(scores, "Away Win", 8)
-    add_score(scores, "Double Chance", 5)
-
-if h2h["btts_rate"] >= 0.60:
-
-    add_score(scores, "BTTS", 8)
-
-if h2h["over25_rate"] >= 0.60:
-
-    add_score(scores, "Over 2.5 Goals", 8)
-"""
-
-    # Home / Away Specialist Engine
-    home_ground_strength = calculate_home_away_strength(
-    home_team_id,
-    home_matches,
-    home=True
-    )
-
-    away_ground_strength = calculate_home_away_strength(
-    away_team_id,
-    away_matches,
-    home=False
-    )
-
-    # League Strength Engine
-
-    home_league_strength = get_league_strength(
-        home_matches[0]["competition"]["name"]
-    ) if home_matches else 75
-
-    away_league_strength = get_league_strength(
-        away_matches[0]["competition"]["name"]
-    ) if away_matches else 75
-
-    home_rating += (home_league_strength - 75) * 0.20
-    away_rating += (away_league_strength - 75) * 0.20
-
-    # Motivation Engine
-    motivation = calculate_motivation(match)
-
-    home_rating += (motivation["home"] - 50) * 0.20
-    away_rating += (motivation["away"] - 50) * 0.20
-
-    # Weather Engine
-    weather = calculate_weather(match)
-
-    home_rating += (weather["home"] - 50) * 0.15
-    away_rating += (weather["away"] - 50) * 0.15
-
-    # Referee Engine
-    referee = calculate_referee(match)
-
-    home_rating += (referee["home"] - 50) * 0.10
-    away_rating += (referee["away"] - 50) * 0.10
-
-    # Home advantage / Away performance
-    home_rating += (home_ground_strength - 50) * 0.30
-    away_rating += (away_ground_strength - 50) * 0.30
-
-    # ==============================
-    # HOME / AWAY ENGINE VOTES
-    # ==============================
-
-    if home_ground_strength >= 75:
-        homeaway_weight = weights["homeaway"]
 
         add_score(
             scores,
+            "Double Chance",
+            5
+        )
+
+    if h2h["draws"] >= 2:
+        add_score(
+            scores,
+            "Draw",
+            6
+        )
+
+    if h2h["btts"] >= 3:
+        add_score(
+            scores,
+            "BTTS",
+            8
+        )
+
+    if h2h["over25"] >= 3:
+        add_score(
+            scores,
+            "Over 2.5 Goals",
+            8
+        )
+
+    # ------------------------------------------------------------
+    # HOME / AWAY ENGINE
+    # ------------------------------------------------------------
+
+    if home_ground_strength >= 75:
+        add_score(
+            scores,
             "Home Win",
-            8 * homeaway_weight
+            8 * homeaway_multiplier
         )
 
     if away_ground_strength >= 75:
-        add_score(scores, "Away Win", 8)
-
-    if abs(home_ground_strength - away_ground_strength) <= 5:
-        add_score(scores, "Double Chance", 4)
-
-    # ==============================
-    # LEAGUE STRENGTH ENGINE VOTES
-    # ==============================
-
-    league_weight = weights["league"]
-
-    if home_league_strength > away_league_strength + 10:
-
-        add_score(
-            scores,
-            "Home Win",
-            6 * league_weight
-        )
-
-    elif away_league_strength > home_league_strength + 10:
-
         add_score(
             scores,
             "Away Win",
-            6 * league_weight
-        ) 
+            8 * homeaway_multiplier
+        )
 
-    # ==============================
-    # MOTIVATION ENGINE VOTES
-    # ==============================
-
-    motivation_weight = weights["motivation"]
-
-    if motivation["home"] >= 75:
-
+    if abs(
+        home_ground_strength - away_ground_strength
+    ) <= 5:
         add_score(
-        scores,
-        "Home Win",
-        6 * motivation_weight
-    )
+            scores,
+            "Double Chance",
+            4
+        )
 
-    if motivation["away"] >= 75:
+    # ------------------------------------------------------------
+    # LEAGUE STRENGTH
+    # ------------------------------------------------------------
 
-        add_score(
-        scores,
-        "Away Win",
-        6 * motivation_weight
-    )     
-
-    # ==============================
-    # FATIGUE ENGINE VOTES
-    # ==============================
-
-    fatigue_weight = weights["fatigue"]
-
-    if home_fatigue > away_fatigue + 10:
-
-        add_score(
-        scores,
-        "Home Win",
-        5 * fatigue_weight
-    )
-
-    elif away_fatigue > home_fatigue + 10:
-
-        add_score(
-        scores,
-        "Away Win",
-        5 * fatigue_weight
-    )    
-
-    # ==============================
-    # SQUAD ENGINE VOTES
-    # ==============================
-
-    if squad["home"] > squad["away"] + 5:
-        squad_weight = weights["squad"]
-
+    if (
+        home_league_strength
+        > away_league_strength + 10
+    ):
         add_score(
             scores,
             "Home Win",
-            7 * squad_weight
+            6 * league_multiplier
+        )
+
+    elif (
+        away_league_strength
+        > home_league_strength + 10
+    ):
+        add_score(
+            scores,
+            "Away Win",
+            6 * league_multiplier
+        )
+
+    # ------------------------------------------------------------
+    # MOTIVATION
+    # ------------------------------------------------------------
+
+    if motivation["home"] >= 75:
+        add_score(
+            scores,
+            "Home Win",
+            6 * motivation_multiplier
+        )
+
+    if motivation["away"] >= 75:
+        add_score(
+            scores,
+            "Away Win",
+            6 * motivation_multiplier
+        )
+
+    # ------------------------------------------------------------
+    # FATIGUE
+    # ------------------------------------------------------------
+
+    if home_fatigue > away_fatigue + 10:
+        add_score(
+            scores,
+            "Home Win",
+            5 * fatigue_multiplier
+        )
+
+    elif away_fatigue > home_fatigue + 10:
+        add_score(
+            scores,
+            "Away Win",
+            5 * fatigue_multiplier
+        )
+
+    # ------------------------------------------------------------
+    # SQUAD
+    # ------------------------------------------------------------
+
+    if squad["home"] > squad["away"] + 5:
+        add_score(
+            scores,
+            "Home Win",
+            7 * squad_multiplier
         )
 
     elif squad["away"] > squad["home"] + 5:
         add_score(
             scores,
             "Away Win",
-            7 * squad_weight
-        ) 
+            7 * squad_multiplier
+        )
 
-    # ==============================
-    # REFEREE ENGINE VOTES
-    # ==============================
-
-    referee_weight = weights["referee"]
+    # ------------------------------------------------------------
+    # REFEREE
+    # ------------------------------------------------------------
 
     if referee["home"] > referee["away"] + 10:
-
         add_score(
-        scores,
-        "Home Win",
-        3 * referee_weight
-    )
+            scores,
+            "Home Win",
+            3 * referee_multiplier
+        )
 
     elif referee["away"] > referee["home"] + 10:
-
         add_score(
-        scores,
-        "Away Win",
-        3 * referee_weight
+            scores,
+            "Away Win",
+            3 * referee_multiplier
+        )
+
+    # ============================================================
+    # 10. TEAM-RATING VOTE
+    # ============================================================
+
+    rating_difference = home_rating - away_rating
+
+    if rating_difference >= 8:
+        add_score(
+            scores,
+            "Home Win",
+            10
+        )
+
+    elif rating_difference <= -8:
+        add_score(
+            scores,
+            "Away Win",
+            10
+        )
+
+    elif abs(rating_difference) <= 3:
+        add_score(
+            scores,
+            "Draw",
+            6
+        )
+
+    # ============================================================
+    # 11. SELECT BEST MARKET
+    # ============================================================
+
+    ranked_markets = sorted(
+        scores.items(),
+        key=lambda item: item[1],
+        reverse=True
     )
-    difference = home_rating - away_rating
 
-    signals = [
+    prediction = ranked_markets[0][0]
+    best_score = ranked_markets[0][1]
 
-        home_form > away_form,
-        home_attack > away_attack,
-        home_defense > away_defense,
-        home_rating > away_rating,
-        home_fatigue > away_fatigue,
-        squad["home"] > squad["away"]
+    second_score = (
+        ranked_markets[1][1]
+        if len(ranked_markets) > 1
+        else 0
+    )
 
-    ]
+    # ============================================================
+    # 12. MARKET-SPECIFIC CONFIDENCE
+    # ============================================================
+    #
+    # Confidence is now based on:
+    #   - support for the selected market
+    #   - separation from the second-best market
+    #
+    # It is NOT based on "is the home team stronger?"
+    #
 
-    confidence = calculate_confidence(signals)
+    if best_score <= 0:
+        market_confidence = 50
+    else:
+        dominance = (
+            (best_score - second_score)
+            / best_score
+        )
 
-    prediction = choose_best_market(scores)
+        dominance = max(
+            0.0,
+            min(1.0, dominance)
+        )
+
+        market_confidence = (
+            55
+            + dominance * 40
+        )
+
+    # ============================================================
+    # 13. DATA QUALITY
+    # ============================================================
+
+    home_sample = min(
+        len(home_matches),
+        5
+    )
+
+    away_sample = min(
+        len(away_matches),
+        5
+    )
+
+    sample_quality = (
+        (home_sample + away_sample)
+        / 10
+    )
+
+    sample_quality = max(
+        0.0,
+        min(1.0, sample_quality)
+    )
+
+    # Full five-match samples preserve confidence.
+    # Smaller samples receive a modest penalty.
+    quality_penalty = (
+        1.0 - sample_quality
+    ) * 10
+
+    confidence = round(
+        max(
+            50,
+            min(
+                95,
+                market_confidence - quality_penalty
+            )
+        )
+    )
+
+    # ============================================================
+    # 14. ODDS
+    # ============================================================
+    #
+    # These remain placeholders until a genuine odds provider
+    # is connected. They are NOT treated as live bookmaker odds.
+    #
 
     odds_table = {
         "Home Win": 1.65,
@@ -863,11 +1127,14 @@ if h2h["over25_rate"] >= 0.60:
         "Under 2.5 Goals": 1.70
     }
 
-    odds = odds_table.get(prediction, 1.60)
+    odds = odds_table.get(
+        prediction,
+        1.60
+    )
 
-    # -------------------------------
-    # VALUE ENGINE
-    # -------------------------------
+    # ============================================================
+    # 15. VALUE
+    # ============================================================
 
     edge = calculate_value(
         confidence,
@@ -876,42 +1143,219 @@ if h2h["over25_rate"] >= 0.60:
 
     value = classify_value(edge)
 
-    # -------------------------------
-    # GRADE ENGINE
-    # -------------------------------
+    # ============================================================
+    # 16. GRADE
+    # ============================================================
 
     grade = calculate_prediction_grade(
         confidence,
         value
     )
 
-    # -------------------------------
-    # REASONING ENGINE
-    # -------------------------------
+    # ============================================================
+    # 17. MARKET-SPECIFIC REASONING
+    # ============================================================
 
-    reasons = generate_reasoning(
+    reasons = []
 
-        prediction,
+    if prediction == "Home Win":
 
-        home_form,
-        away_form,
+        if home_form > away_form:
+            reasons.append(
+                "Home team has the stronger recent form."
+            )
 
-        home_attack,
-        away_attack,
+        if home_attack > away_attack:
+            reasons.append(
+                "Home team has the stronger attacking profile."
+            )
 
-        home_defense,
-        away_defense,
+        if home_defense > away_defense:
+            reasons.append(
+                "Home team has the stronger defensive profile."
+            )
 
-        home_xg,
-        away_xg,
+        if home_momentum > away_momentum:
+            reasons.append(
+                "Recent momentum favours the home team."
+            )
 
-        h2h,
+        if home_rating > away_rating:
+            reasons.append(
+                "Overall team rating favours the home side."
+            )
 
-        squad
-    )
+        if h2h["home_wins"] > h2h["away_wins"]:
+            reasons.append(
+                "Historical meetings favour the home side."
+            )
+
+    elif prediction == "Away Win":
+
+        if away_form > home_form:
+            reasons.append(
+                "Away team has the stronger recent form."
+            )
+
+        if away_attack > home_attack:
+            reasons.append(
+                "Away team has the stronger attacking profile."
+            )
+
+        if away_defense > home_defense:
+            reasons.append(
+                "Away team has the stronger defensive profile."
+            )
+
+        if away_momentum > home_momentum:
+            reasons.append(
+                "Recent momentum favours the away team."
+            )
+
+        if away_rating > home_rating:
+            reasons.append(
+                "Overall team rating favours the away side."
+            )
+
+        if h2h["away_wins"] > h2h["home_wins"]:
+            reasons.append(
+                "Historical meetings favour the away side."
+            )
+
+    elif prediction == "Draw":
+
+        if abs(home_rating - away_rating) <= 3:
+            reasons.append(
+                "Overall team ratings are closely matched."
+            )
+
+        if abs(home_form - away_form) <= 5:
+            reasons.append(
+                "Recent form is closely matched."
+            )
+
+        if h2h["draws"] >= 2:
+            reasons.append(
+                "Recent head-to-head history contains multiple draws."
+            )
+
+    elif prediction == "Double Chance":
+
+        if abs(home_rating - away_rating) <= 8:
+            reasons.append(
+                "The teams are relatively close on overall rating."
+            )
+
+        if abs(home_momentum - away_momentum) <= 5:
+            reasons.append(
+                "Recent momentum is closely matched."
+            )
+
+        if abs(
+            home_ground_strength
+            - away_ground_strength
+        ) <= 5:
+            reasons.append(
+                "Home/away performance is closely matched."
+            )
+
+    elif prediction == "BTTS":
+
+        if (
+            home_attack >= 75
+            and away_attack >= 75
+        ):
+            reasons.append(
+                "Both teams show strong attacking profiles."
+            )
+
+        if (
+            home_xg["xg"] >= 1.5
+            and away_xg["xg"] >= 1.5
+        ):
+            reasons.append(
+                "Both teams have strong estimated goal output."
+            )
+
+        if h2h["btts"] >= 3:
+            reasons.append(
+                "Head-to-head history supports both teams scoring."
+            )
+
+    elif prediction == "Over 1.5 Goals":
+
+        if home_attack >= 70 or away_attack >= 70:
+            reasons.append(
+                "At least one attack shows strong scoring potential."
+            )
+
+        if (
+            home_defense <= 60
+            or away_defense <= 60
+        ):
+            reasons.append(
+                "At least one defense has shown vulnerability."
+            )
+
+    elif prediction == "Over 2.5 Goals":
+
+        if (
+            home_attack >= 75
+            and away_attack >= 75
+        ):
+            reasons.append(
+                "Both teams show strong attacking profiles."
+            )
+
+        if (
+            home_xg["xg"] >= 2.0
+            or away_xg["xg"] >= 2.0
+        ):
+            reasons.append(
+                "Estimated goal output supports a high-scoring match."
+            )
+
+        if (
+            home_defense <= 60
+            and away_defense <= 60
+        ):
+            reasons.append(
+                "Both defenses show vulnerability."
+            )
+
+        if h2h["over25"] >= 3:
+            reasons.append(
+                "Head-to-head history supports higher scoring."
+            )
+
+    elif prediction == "Under 2.5 Goals":
+
+        if (
+            home_defense >= 80
+            and away_defense >= 80
+        ):
+            reasons.append(
+                "Both teams show strong defensive profiles."
+            )
+
+        if (
+            home_xg["xga"] < 1.6
+            and away_xg["xga"] < 1.6
+        ):
+            reasons.append(
+                "Estimated defensive goal-concession rates are controlled."
+            )
+
+    if not reasons:
+        reasons.append(
+            "The selected market received the strongest combined support from the available evidence."
+        )
+
+    # ============================================================
+    # 18. RETURN COMPLETE PREDICTION SNAPSHOT
+    # ============================================================
 
     return {
-
         "prediction": prediction,
         "confidence": confidence,
 
@@ -926,7 +1370,6 @@ if h2h["over25_rate"] >= 0.60:
         "home_rating": round(home_rating, 2),
         "away_rating": round(away_rating, 2),
 
-        # NEW
         "home_form": home_form,
         "away_form": away_form,
 
@@ -939,11 +1382,34 @@ if h2h["over25_rate"] >= 0.60:
         "home_momentum": home_momentum,
         "away_momentum": away_momentum,
 
-        "home_xg": round(home_xg["xg"], 2),
-        "away_xg": round(away_xg["xg"], 2),
+        "home_xg": home_xg["xg"],
+        "away_xg": away_xg["xg"],
 
-        "home_xga": round(home_xg["xga"], 2),
-        "away_xga": round(away_xg["xga"], 2)
+        "home_xga": home_xg["xga"],
+        "away_xga": away_xg["xga"],
+
+        "form_weight": form_weight,
+        "attack_weight": attack_weight,
+        "defense_weight": defense_weight,
+        "momentum_weight": momentum_weight,
+        "xg_weight": xg_weight,
+        "xga_weight": float(
+            weights.get("xga", 10.0)
+        ),
+        "h2h_weight": h2h_weight,
+        "squad_weight": squad_weight,
+        "league_weight": league_weight,
+        "motivation_weight": motivation_weight,
+        "fatigue_weight": fatigue_weight,
+        "referee_weight": referee_weight,
+        "homeaway_weight": homeaway_weight,
+
+        "market_scores": scores,
+
+        "data_quality": round(
+            sample_quality * 100,
+            2
+        )
     }
 
 if __name__ == "__main__":
