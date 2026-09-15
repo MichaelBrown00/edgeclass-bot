@@ -104,6 +104,9 @@ def fetch_team_recent_matches(
     Target-specific filtering is applied after loading the cache so
     one prediction cannot contaminate another prediction's history.
 
+    API requests are paced to reduce Football-Data.org rate-limit bursts.
+    HTTP 429 responses are retried with a short backoff.
+
     exclude_fixture_id:
         Prevents the target fixture itself from being used as history.
 
@@ -114,6 +117,7 @@ def fetch_team_recent_matches(
 
     if team_id in TEAM_FORM_CACHE:
         completed_matches = TEAM_FORM_CACHE[team_id]
+
     else:
         # Request a larger pool because the API may return
         # future fixtures before completed historical matches.
@@ -126,34 +130,88 @@ def fetch_team_recent_matches(
             "X-Auth-Token": config.FOOTBALL_DATA_KEY
         }
 
-        try:
-            response = requests.get(
-                url,
-                headers=headers,
-                timeout=20
-            )
-            response.raise_for_status()
+        max_attempts = 3
+        minimum_interval = 7.0
 
-            matches = response.json().get("matches", [])
+        for attempt in range(1, max_attempts + 1):
 
-            # Keep ONLY matches that have actually finished.
-            completed_matches = [
-                match
-                for match in matches
-                if match.get("status") == "FINISHED"
-            ]
+            try:
+                # Proactively space fresh API requests.
+                # This reduces burst rate-limit errors.
+                last_request_at = getattr(
+                    fetch_team_recent_matches,
+                    "_last_request_at",
+                    0.0
+                )
 
-            # Sort newest completed matches first.
-            completed_matches.sort(
-                key=lambda match: match.get("utcDate", ""),
-                reverse=True
-            )
+                elapsed = time.monotonic() - last_request_at
 
-            # Cache the RAW completed history.
-            TEAM_FORM_CACHE[team_id] = completed_matches
+                if elapsed < minimum_interval:
+                    time.sleep(minimum_interval - elapsed)
 
-        except Exception as e:
-            print(f"Error fetching team {team_id}: {e}")
+                fetch_team_recent_matches._last_request_at = (
+                    time.monotonic()
+                )
+
+                response = requests.get(
+                    url,
+                    headers=headers,
+                    timeout=20
+                )
+
+                # Handle Football-Data.org rate limiting explicitly.
+                if response.status_code == 429:
+
+                    retry_after = response.headers.get("Retry-After")
+
+                    try:
+                        wait_seconds = float(retry_after)
+                    except (TypeError, ValueError):
+                        wait_seconds = 10.0 * attempt
+
+                    if attempt < max_attempts:
+                        print(
+                            f"Rate limit for team {team_id}. "
+                            f"Retrying in {wait_seconds:.1f} seconds..."
+                        )
+
+                        time.sleep(wait_seconds)
+                        continue
+
+                    print(
+                        f"Rate limit persisted for team {team_id} "
+                        f"after {max_attempts} attempts."
+                    )
+
+                    return []
+
+                response.raise_for_status()
+
+                matches = response.json().get("matches", [])
+
+                # Keep ONLY matches that have actually finished.
+                completed_matches = [
+                    match
+                    for match in matches
+                    if match.get("status") == "FINISHED"
+                ]
+
+                # Sort newest completed matches first.
+                completed_matches.sort(
+                    key=lambda match: match.get("utcDate", ""),
+                    reverse=True
+                )
+
+                # Cache the RAW completed history.
+                TEAM_FORM_CACHE[team_id] = completed_matches
+
+                break
+
+            except Exception as e:
+                print(f"Error fetching team {team_id}: {e}")
+                return []
+
+        else:
             return []
 
     # Start with the complete cached historical dataset.
