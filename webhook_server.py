@@ -62,6 +62,30 @@ def home():
     return "Webhook Server Running"
 
 
+def process_telegram_update_background(update):
+    """
+    Process a Telegram update outside the Flask/Gunicorn request.
+
+    The Telegram application already has its own background event loop.
+    This helper submits the update to that loop without keeping the
+    HTTP webhook request open while the command is being processed.
+    """
+
+    try:
+        asyncio.run(
+            process_telegram_update(update)
+        )
+
+        print("✅ TELEGRAM UPDATE PROCESSED")
+
+    except Exception as e:
+
+        print(
+            "❌ BACKGROUND TELEGRAM UPDATE ERROR:",
+            repr(e)
+        )
+
+
 @app.route("/telegram/webhook", methods=["POST"])
 def telegram_webhook():
 
@@ -76,11 +100,16 @@ def telegram_webhook():
             print("❌ Empty Telegram update")
             return "Bad Request", 400
 
-        asyncio.run(
-            process_telegram_update(update)
+        telegram_thread = threading.Thread(
+            target=process_telegram_update_background,
+            args=(update,),
+            name="telegram-webhook-update",
+            daemon=True,
         )
 
-        print("✅ TELEGRAM UPDATE PROCESSED")
+        telegram_thread.start()
+
+        print("🚀 TELEGRAM UPDATE QUEUED")
 
         return "OK", 200
 
